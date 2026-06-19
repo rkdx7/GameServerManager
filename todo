@@ -1,0 +1,38 @@
+- faire fonctionné les backups
+- pouvoir pouvoir switcher entre les backups comme si cetait des snapshot
+- pouvoir scheduler des backups et si c est un serveur distance install une crons sur le serveurs distant
+- choisir la localisation de backup local, sur un serveur 
+- pouvoir rename le serveurs et prompte pour creer le serveurs pour choisir le nom
+- nom du serveur affichier au niveau des joueurs
+- pouvoir editer le fichier de conf meme apres l installation du serveur et ajoute une option pour choisir quand on veux la customiser
+- advenced dit moi a quoi ça fait reference quand le nom du fichier par exemple pour chaque jeux
+- montre un exemple de configuration
+- relire tout le code et optimisé  et trié les fichiers par dossiers
+- je veux que les version proposé soit reload automatiquement depuis les tags de l image ciblé sur le registry
+- ajouter csgo 1.6
+- ajoute cube2 sauerbraten
+- ajoute un banier jolie de chaque jeux en haut de chaque page
+- voir les logs du  container directement depuis chaque page de chaque serveur de jeux\
+- voir les event du container pour voir si il y a un probleme
+
+- ajoute une partie section chat vocal, install serveur ts3 mumble 
+- ajoute une section prometheus grafana alermanager preconfigure ensemble (on peut le deployer en local ou a distance  comme les serveurs de jeux)
+  une fois installer donne les liens pour y accedé 
+
+
+- ajoute une partie site web avec site worldpress et un form phpbb ou plus recent 
+
+- dans le menu de gauche regroupe tout les jeux enssemble dans sous menu 
+- dans un autre sous menu les chat vocal
+- dans un autre sous menu le siteweb et le forum 
+- dans un autre sous menu le monitoring
+- dans un autre sous menu un securité (wireguard) uniquement dispo pour un serveur distant et il doit etre installer sur la vm et pas dans docker
+ ajoute un section firewall pour ouvrir fermer des ports de la machine distante 
+ ajoute fail2ban 
+
+
+
+- docs a rediger 
+- retirer la page de login
+- ajoute une icon a l applit
+- ecrit des cgu et recommande moi sous quelle licence je peux le diffuser

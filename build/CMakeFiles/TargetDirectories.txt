@@ -1,0 +1,5 @@
+C:/Users/PC/Documents/app-qt/build/CMakeFiles/app-qt.dir
+C:/Users/PC/Documents/app-qt/build/CMakeFiles/edit_cache.dir
+C:/Users/PC/Documents/app-qt/build/CMakeFiles/rebuild_cache.dir
+C:/Users/PC/Documents/app-qt/build/CMakeFiles/app-qt_autogen_timestamp_deps.dir
+C:/Users/PC/Documents/app-qt/build/CMakeFiles/app-qt_autogen.dir
