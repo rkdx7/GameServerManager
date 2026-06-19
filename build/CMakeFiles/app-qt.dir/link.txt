@@ -1,3 +1,0 @@
-C:\Qt\Tools\CMake_64\bin\cmake.exe -E rm -f CMakeFiles\app-qt.dir/objects.a
-C:\Qt\Tools\mingw1310_64\bin\ar.exe qc CMakeFiles\app-qt.dir/objects.a @CMakeFiles\app-qt.dir\objects1.rsp
-C:\Qt\Tools\mingw1310_64\bin\c++.exe -O3 -DNDEBUG -mwindows -Wl,--whole-archive CMakeFiles\app-qt.dir/objects.a -Wl,--no-whole-archive -o app-qt.exe -Wl,--out-implib,libapp-qt.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\app-qt.dir\linkLibs.rsp

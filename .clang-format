@@ -1,0 +1,32 @@
+# Qt-style C++ formatting for GameServerManager.
+# Apply with: clang-format -i <files>  (install clang-format via LLVM/MinGW first)
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+Standard: c++17
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: false
+  BeforeElse: false
+
+AccessModifierOffset: -4
+NamespaceIndentation: None
+PointerAlignment: Left
+SpaceBeforeParens: ControlStatements
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+SortIncludes: false

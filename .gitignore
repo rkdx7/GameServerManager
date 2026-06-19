@@ -1,0 +1,20 @@
+# Build output
+/build/
+build/
+*.obj
+*.exe
+
+# Qt / MOC generated
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# Tooling logs
+aqtinstall.log
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+*.user
+.DS_Store
