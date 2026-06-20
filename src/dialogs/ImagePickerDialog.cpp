@@ -22,6 +22,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QEvent>
+#include <QMouseEvent>
+#include <QLineEdit>
 
 namespace {
 
@@ -240,6 +243,10 @@ QWidget *ImagePickerDialog::buildHubPage()
     if (!initialTag.isEmpty())
         m_hubTag->setCurrentText(initialTag);
     connect(m_hubTag, &QComboBox::currentTextChanged, this, &ImagePickerDialog::updatePreview);
+    // A single click in the editable field should drop the version list down,
+    // not just place the text cursor. Watch its line edit for mouse presses.
+    if (m_hubTag->lineEdit())
+        m_hubTag->lineEdit()->installEventFilter(this);
 
     auto *reloadBtn = new QPushButton("🔄", w);
     reloadBtn->setFixedSize(38, 38);
@@ -486,6 +493,22 @@ void ImagePickerDialog::reloadHubTags()
         }
         updatePreview();
     });
+}
+
+bool ImagePickerDialog::eventFilter(QObject *obj, QEvent *event)
+{
+    if (m_hubTag && m_hubTag->lineEdit() && obj == m_hubTag->lineEdit()
+        && event->type() == QEvent::MouseButtonPress) {
+        auto *me = static_cast<QMouseEvent *>(event);
+        if (me->button() == Qt::LeftButton) {
+            // Make sure the list is fresh, then drop it down.
+            if (m_hubTag->count() == 0)
+                reloadHubTags();
+            m_hubTag->showPopup();
+            return true;
+        }
+    }
+    return QDialog::eventFilter(obj, event);
 }
 
 void ImagePickerDialog::updatePreview()
