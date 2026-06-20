@@ -248,6 +248,25 @@ QWidget *MinecraftPage::buildInstancePanel()
     connect(m_instanceList, &QListWidget::currentRowChanged,
             this, &MinecraftPage::switchToInstance);
 
+    // Double-click a server to rename it inline.
+    m_instanceList->setEditTriggers(QAbstractItemView::DoubleClicked);
+    connect(m_instanceList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
+        int row = m_instanceList->row(item);
+        if (row < 0 || row >= m_instances.size()) return;
+        const QString name = item->text().trimmed();
+        if (name.isEmpty() || name == m_instances[row].displayName) {
+            m_instanceList->blockSignals(true);
+            item->setText(m_instances[row].displayName);
+            m_instanceList->blockSignals(false);
+            return;
+        }
+        m_instances[row].displayName = name;
+        m_instanceList->blockSignals(true);
+        item->setText(name);
+        m_instanceList->blockSignals(false);
+        saveInstances();
+    });
+
     updateInstanceButtons();
     return panel;
 }

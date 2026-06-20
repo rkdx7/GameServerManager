@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QLinearGradient>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QSettings>
 
 // ── Game config helpers ───────────────────────────────────────────────────────
@@ -1038,6 +1039,32 @@ MainWindow::MainWindow(QWidget *parent)
     root->addWidget(contentFrame, 1);
 
     connect(sidebar, &SideBar::pageSelected, m_stack, &QStackedWidget::setCurrentIndex);
+
+    // Close button (X) anchored to the top-right corner of the frameless window
+    auto *closeBtn = new QPushButton("✕", this);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setToolTip("Fermer");
+    closeBtn->setFixedSize(28, 28);
+    closeBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: transparent;
+            color: #64748b;
+            border: none;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #ef4444;
+            color: white;
+        }
+        QPushButton:pressed {
+            background-color: #dc2626;
+        }
+    )");
+    closeBtn->move(width() - closeBtn->width() - 12, 12);
+    closeBtn->raise();
+    connect(closeBtn, &QPushButton::clicked, this, &MainWindow::close);
 }
 
 void MainWindow::paintEvent(QPaintEvent *) {
