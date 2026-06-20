@@ -2,7 +2,6 @@
 #include "SideBar.h"
 #include "MinecraftPage.h"
 #include "CS2Page.h"
-#include "DockerSettingsPage.h"
 #include "DockerManager.h"
 #include "GenericGamePage.h"
 #include "InfraPage.h"
@@ -1012,12 +1011,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_stack->addWidget(sauerbraten);                            // 36
     regSelectors(sauerbraten);
 
-    // ── SYSTÈME ─────────────────────────────────────────────────────────
-    m_stack->addWidget(new DockerSettingsPage(m_docker, this)); // 37
-
     // ── INFRASTRUCTURE ──────────────────────────────────────────────────
     m_infraPage = new InfraPage(&m_vmList, this);
-    m_stack->addWidget(m_infraPage);                            // 38
+    m_stack->addWidget(m_infraPage);                            // 37
     connect(m_infraPage, &InfraPage::vmListChanged,
             this, &MainWindow::onVMListChanged);
 

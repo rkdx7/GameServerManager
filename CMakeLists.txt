@@ -22,7 +22,6 @@ add_executable(app-qt WIN32
     src/pages/MinecraftPage.cpp     src/pages/MinecraftPage.h
     src/pages/CS2Page.cpp           src/pages/CS2Page.h
     src/pages/GenericGamePage.cpp   src/pages/GenericGamePage.h
-    src/pages/DockerSettingsPage.cpp src/pages/DockerSettingsPage.h
     src/pages/VMAdminPage.cpp       src/pages/VMAdminPage.h
     src/pages/InfraPage.cpp         src/pages/InfraPage.h
 

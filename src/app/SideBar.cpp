@@ -1,10 +1,12 @@
 #include "SideBar.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
 #include <QLineEdit>
 #include <QFrame>
 #include <QScrollArea>
+#include <QSettings>
 
 namespace {
 const char *NAV_STYLE = R"(
@@ -44,25 +46,53 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    // Logo
-    auto *logo = new QLabel("🎮 GameServer\nManager", this);
-    logo->setAlignment(Qt::AlignCenter);
-    logo->setStyleSheet(
-        "color: #ffffff; font-size: 14px; font-weight: 700;"
-        "padding: 20px 16px 14px; background: transparent;");
-    root->addWidget(logo);
+    // Header: logo + collapse toggle button
+    auto *header = new QWidget(this);
+    header->setAttribute(Qt::WA_TranslucentBackground);
+    auto *headerLay = new QHBoxLayout(header);
+    headerLay->setContentsMargins(8, 10, 8, 0);
+    headerLay->setSpacing(0);
 
-    auto makeSep = [this]() {
-        auto *s = new QFrame(this);
-        s->setFrameShape(QFrame::HLine);
-        s->setFixedHeight(1);
-        s->setStyleSheet("background: rgba(255,255,255,0.12); border: none;");
-        return s;
-    };
-    root->addWidget(makeSep());
+    m_logo = new QLabel("🎮 GameServer\nManager", header);
+    m_logo->setAlignment(Qt::AlignCenter);
+    m_logo->setStyleSheet(
+        "color: #ffffff; font-size: 14px; font-weight: 700;"
+        "padding: 10px 8px 4px; background: transparent;");
+    headerLay->addWidget(m_logo, 1);
+
+    m_toggleBtn = new QPushButton("‹", header);
+    m_toggleBtn->setFixedSize(32, 32);
+    m_toggleBtn->setCursor(Qt::PointingHandCursor);
+    m_toggleBtn->setToolTip("Masquer le menu");
+    m_toggleBtn->setStyleSheet(R"(
+        QPushButton {
+            background: rgba(255,255,255,0.08);
+            color: #a5b4fc;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 0;
+        }
+        QPushButton:hover {
+            background: rgba(99,102,241,0.30);
+            color: #ffffff;
+        }
+    )");
+    connect(m_toggleBtn, &QPushButton::clicked, this,
+            [this]() { setCollapsed(!m_collapsed); });
+    headerLay->addWidget(m_toggleBtn, 0, Qt::AlignTop);
+    root->addWidget(header);
+
+    m_logoSep = new QFrame(this);
+    m_logoSep->setFrameShape(QFrame::HLine);
+    m_logoSep->setFixedHeight(1);
+    m_logoSep->setStyleSheet("background: rgba(255,255,255,0.12); border: none;");
+    root->addWidget(m_logoSep);
 
     // Search box
     auto *search = new QLineEdit(this);
+    m_search = search;
     search->setPlaceholderText("🔍  Rechercher un jeu…");
     search->setClearButtonEnabled(true);
     search->setStyleSheet(R"(
@@ -85,6 +115,7 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
 
     // Scrollable game list
     auto *scrollArea = new QScrollArea(this);
+    m_scrollArea = scrollArea;
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -169,13 +200,9 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
     addGame(nav, "🎮  Pavlov VR");          // 35
     addGame(nav, "🔫  Sauerbraten");        // 36
 
-    // ── Système ─────────────────────────────────────────────────────────
-    addCategory(nav, "SYSTÈME");
-    addGame(nav, "⚙  Docker");             // 37
-
     // ── Infrastructure ──────────────────────────────────────────────────
     addCategory(nav, "INFRASTRUCTURE");
-    addGame(nav, "☁  Infra");              // 38
+    addGame(nav, "☁  Infra");              // 37
 
     nav->addStretch();
 
@@ -183,6 +210,30 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
     root->addWidget(scrollArea, 1);
 
     root->addSpacing(8);
+
+    // Restore the collapsed state remembered across the whole app.
+    QSettings settings("GameServerManager", "App");
+    setCollapsed(settings.value("ui/sidebarCollapsed", false).toBool(), false);
+}
+
+void SideBar::setCollapsed(bool collapsed, bool persist)
+{
+    m_collapsed = collapsed;
+    setFixedWidth(collapsed ? 48 : 220);
+
+    m_logo->setVisible(!collapsed);
+    m_logoSep->setVisible(!collapsed);
+    m_search->setVisible(!collapsed);
+    m_scrollArea->setVisible(!collapsed);
+
+    m_toggleBtn->setText(collapsed ? "›" : "‹");
+    m_toggleBtn->setToolTip(collapsed ? "Afficher le menu" : "Masquer le menu");
+
+    if (persist) {
+        QSettings settings("GameServerManager", "App");
+        settings.setValue("ui/sidebarCollapsed", collapsed);
+    }
+    emit collapsedChanged(collapsed);
 }
 
 void SideBar::addCategory(QVBoxLayout *layout, const QString &name)
