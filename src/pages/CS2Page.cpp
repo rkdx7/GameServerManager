@@ -3,7 +3,6 @@
 #include "ServerDashboard.h"
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
-#include "GameBanner.h"
 #include "ServerPanelState.h"
 
 #include <QVBoxLayout>
@@ -426,10 +425,6 @@ QWidget *CS2Page::buildInstallForm() {
     gsltNote->setStyleSheet("font-size: 12px; color: #94a3b8; background: transparent;");
     gsltNote->setWordWrap(true);
 
-    outer->addWidget(buildGameBanner(
-        "🔫", "CS2 / CS:GO Server",
-        "Déployez un serveur CS2 dédié via Docker (image joedwards32/cs2).",
-        "#ea580c", "#c2410c", ":/games/cs2.png", container));
     outer->addSpacing(12);
     outer->addWidget(gsltNote);
     outer->addSpacing(24);
