@@ -249,7 +249,10 @@ QWidget *MinecraftPage::buildInstancePanel()
             this, &MinecraftPage::switchToInstance);
 
     // Double-click a server to rename it inline.
-    m_instanceList->setEditTriggers(QAbstractItemView::DoubleClicked);
+    connect(m_instanceList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
+        item->setFlags(item->flags() | Qt::ItemIsEditable);
+        m_instanceList->editItem(item);
+    });
     connect(m_instanceList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
         int row = m_instanceList->row(item);
         if (row < 0 || row >= m_instances.size()) return;
