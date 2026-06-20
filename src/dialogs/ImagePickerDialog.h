@@ -25,6 +25,10 @@ public:
     QString loginUsername()   const;
     QString loginPassword()   const;
 
+protected:
+    // Open the tag dropdown on a single click in its (editable) field.
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 private slots:
     void onSourceChanged(int id);
     void loadLocalImages();
