@@ -61,4 +61,6 @@ Every game server must expose a **Logs** tab in its running-server view. This is
 
 For every new task, create a dedicated branch that starts from `dev`. Do the work on that branch, commit the changes on it, and once the task is finished merge it back into `dev`.
 
+**Always merge the finished work into `dev` automatically when a task is done — do not wait to be asked.** Commit the changes on the task branch, then merge that branch into `dev`. (`main` stays untouched; release merges into `main` are done manually.)
+
 Do not commit directly to `dev` or `main`.
