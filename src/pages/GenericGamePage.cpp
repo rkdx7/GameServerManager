@@ -4,6 +4,7 @@
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
 #include "GameBanner.h"
+#include "ServerPanelState.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -184,12 +185,31 @@ QWidget *GenericGamePage::buildInstancePanel()
     layout->setContentsMargins(10, 14, 10, 14);
     layout->setSpacing(6);
 
+    // Header row: title + collapse toggle.
+    auto *headerRow = new QWidget;
+    headerRow->setStyleSheet("background: transparent; border: none;");
+    auto *headerLay = new QHBoxLayout(headerRow);
+    headerLay->setContentsMargins(0, 0, 0, 0);
+    headerLay->setSpacing(0);
+
     auto *titleLbl = new QLabel("SERVEURS");
     titleLbl->setStyleSheet(
         "font-size: 10px; font-weight: 700; color: #94a3b8; "
         "background: transparent; letter-spacing: 1px;");
-    layout->addWidget(titleLbl);
+    headerLay->addWidget(titleLbl, 1);
+
+    // Collapsible content (instance list + add/delete buttons).
+    auto *content = new QWidget;
+    content->setStyleSheet("background: transparent; border: none;");
+    auto *contentLay = new QVBoxLayout(content);
+    contentLay->setContentsMargins(0, 0, 0, 0);
+    contentLay->setSpacing(6);
+
+    headerLay->addWidget(
+        ServerPanel::makeCollapseToggle(panel, titleLbl, content, 185), 0, Qt::AlignTop);
+    layout->addWidget(headerRow);
     layout->addSpacing(2);
+    layout->addWidget(content, 1);
 
     m_instanceList = new QListWidget;
     m_instanceList->setStyleSheet(R"(
@@ -216,8 +236,8 @@ QWidget *GenericGamePage::buildInstancePanel()
     for (const auto &inst : m_instances)
         m_instanceList->addItem(inst.displayName);
 
-    layout->addWidget(m_instanceList, 1);
-    layout->addSpacing(6);
+    contentLay->addWidget(m_instanceList, 1);
+    contentLay->addSpacing(6);
 
     auto *addBtn = new QPushButton("+ Nouveau");
     addBtn->setFixedHeight(32);
@@ -231,7 +251,7 @@ QWidget *GenericGamePage::buildInstancePanel()
         QPushButton:hover { background: #4f46e5; }
     )");
     connect(addBtn, &QPushButton::clicked, this, &GenericGamePage::addInstance);
-    layout->addWidget(addBtn);
+    contentLay->addWidget(addBtn);
 
     m_deleteInstanceBtn = new QPushButton("Supprimer");
     m_deleteInstanceBtn->setFixedHeight(28);
@@ -249,7 +269,7 @@ QWidget *GenericGamePage::buildInstancePanel()
         int idx = m_instanceList->currentRow();
         if (idx >= 0) deleteInstance(idx);
     });
-    layout->addWidget(m_deleteInstanceBtn);
+    contentLay->addWidget(m_deleteInstanceBtn);
 
     connect(m_instanceList, &QListWidget::currentRowChanged,
             this, &GenericGamePage::switchToInstance);
