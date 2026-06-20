@@ -11,6 +11,7 @@
 #include <QStackedWidget>
 #include <QLabel>
 #include <QLineEdit>
+#include <QInputDialog>
 #include <QComboBox>
 #include <QSpinBox>
 #include <QCheckBox>
@@ -273,25 +274,17 @@ QWidget *GenericGamePage::buildInstancePanel()
     connect(m_instanceList, &QListWidget::currentRowChanged,
             this, &GenericGamePage::switchToInstance);
 
-    // Double-click a server to rename it inline.
+    // Double-click a server to rename it.
     connect(m_instanceList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
-        item->setFlags(item->flags() | Qt::ItemIsEditable);
-        m_instanceList->editItem(item);
-    });
-    connect(m_instanceList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
         int row = m_instanceList->row(item);
         if (row < 0 || row >= m_instances.size()) return;
-        const QString name = item->text().trimmed();
-        if (name.isEmpty() || name == m_instances[row].displayName) {
-            m_instanceList->blockSignals(true);
-            item->setText(m_instances[row].displayName);
-            m_instanceList->blockSignals(false);
-            return;
-        }
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            this, "Renommer le serveur", "Nouveau nom :",
+            QLineEdit::Normal, m_instances[row].displayName, &ok).trimmed();
+        if (!ok || name.isEmpty() || name == m_instances[row].displayName) return;
         m_instances[row].displayName = name;
-        m_instanceList->blockSignals(true);
         item->setText(name);
-        m_instanceList->blockSignals(false);
         saveInstances();
     });
 
