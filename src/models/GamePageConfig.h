@@ -25,6 +25,7 @@ struct GamePortMapping {
 
 struct GamePageConfig {
     QString  icon;
+    QString  bannerImage;   // optional artwork shown in the banner (e.g. ":/games/generic.png"); falls back to icon
     QString  title;
     QString  description;
     QString  note;

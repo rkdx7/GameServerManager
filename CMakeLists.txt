@@ -4,14 +4,17 @@ project(app-qt LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
 add_executable(app-qt WIN32
     src/main.cpp
 
+    # Bundled resources (game banner artwork)
+    resources/games.qrc
+
     # Application shell
-    src/app/LoginWindow.cpp         src/app/LoginWindow.h
     src/app/MainWindow.cpp          src/app/MainWindow.h
     src/app/SideBar.cpp             src/app/SideBar.h
 

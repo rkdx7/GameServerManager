@@ -1,5 +1,4 @@
 #include <QApplication>
-#include "LoginWindow.h"
 #include "MainWindow.h"
 
 int main(int argc, char *argv[])
@@ -8,21 +7,8 @@ int main(int argc, char *argv[])
     app.setApplicationName("GameServerManager");
     app.setOrganizationName("GameServerManager");
 
-    auto *login   = new LoginWindow;
-    MainWindow *main = nullptr;
+    auto *main = new MainWindow;
+    main->show();
 
-    QObject::connect(login, &LoginWindow::loginSucceeded, [&]() {
-        login->hide();
-        main = new MainWindow;
-        QObject::connect(main, &MainWindow::loggedOut, [&]() {
-            main->close();
-            main->deleteLater();
-            main = nullptr;
-            login->show();
-        });
-        main->show();
-    });
-
-    login->show();
     return app.exec();
 }

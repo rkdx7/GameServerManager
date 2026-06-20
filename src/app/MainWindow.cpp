@@ -1042,7 +1042,6 @@ MainWindow::MainWindow(QWidget *parent)
     root->addWidget(contentFrame, 1);
 
     connect(sidebar, &SideBar::pageSelected, m_stack, &QStackedWidget::setCurrentIndex);
-    connect(sidebar, &SideBar::logoutRequested, this, &MainWindow::loggedOut);
 }
 
 void MainWindow::paintEvent(QPaintEvent *) {

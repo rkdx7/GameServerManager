@@ -174,25 +174,31 @@ int DockerManager::getCS2PlayerCount(const QString &name, const QString &rconPas
     return m.hasMatch() ? m.captured(1).toInt() : 0;
 }
 
-QStringList DockerManager::listBackups(const QString &name) {
+QStringList DockerManager::listBackups(const QString &name, const QString &dataPath) {
     QString out = run({"exec", name, "sh", "-c",
-                        "ls /data/backups/*.tar.gz 2>/dev/null | xargs -I{} basename {}"}, 5000);
+                        QStringLiteral("ls %1/backups/*.tar.gz 2>/dev/null "
+                                       "| xargs -I{} basename {}").arg(dataPath)}, 5000);
     if (out.trimmed().isEmpty()) return {};
     return out.trimmed().split('\n', Qt::SkipEmptyParts);
 }
 
-void DockerManager::createBackup(const QString &name) {
+void DockerManager::createBackup(const QString &name, const QString &dataPath) {
     QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    // Archive everything under the data dir except the backups folder itself.
+    // Using `--exclude=./backups .` instead of `$(ls | grep -v backups)` so that
+    // filenames with spaces and dotfiles are handled, and an (almost) empty data
+    // dir does not produce a "refusing to create empty archive" failure.
     run({"exec", name, "sh", "-c",
-         QStringLiteral("mkdir -p /data/backups && "
-                        "tar czf /data/backups/backup_%1.tar.gz -C /data "
-                        "$(ls /data | grep -v backups) 2>/dev/null").arg(ts)
+         QStringLiteral("mkdir -p %1/backups && "
+                        "tar czf %1/backups/backup_%2.tar.gz -C %1 "
+                        "--exclude=./backups . 2>/dev/null").arg(dataPath, ts)
         }, 120000);
 }
 
-void DockerManager::restoreBackup(const QString &name, const QString &backupFile) {
+void DockerManager::restoreBackup(const QString &name, const QString &backupFile,
+                                  const QString &dataPath) {
     run({"exec", name, "sh", "-c",
-         QStringLiteral("tar xzf /data/backups/%1 -C /data").arg(backupFile)
+         QStringLiteral("tar xzf %1/backups/%2 -C %1").arg(dataPath, backupFile)
         }, 120000);
 }
 

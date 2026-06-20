@@ -32,9 +32,10 @@ public:
     ServerStats  getStats(const QString &name);
     int          getMinecraftPlayerCount(const QString &name);
     int          getCS2PlayerCount(const QString &name, const QString &rconPass);
-    QStringList  listBackups(const QString &name);
-    void         createBackup(const QString &name);
-    void         restoreBackup(const QString &name, const QString &backupFile);
+    QStringList  listBackups(const QString &name, const QString &dataPath = "/data");
+    void         createBackup(const QString &name, const QString &dataPath = "/data");
+    void         restoreBackup(const QString &name, const QString &backupFile,
+                               const QString &dataPath = "/data");
 
     QString      execInContainer(const QString &container,
                                    const QStringList &cmd,

@@ -8,6 +8,9 @@ class QLineEdit;
 class QComboBox;
 class QLabel;
 class QPushButton;
+class QNetworkAccessManager;
+class QNetworkReply;
+class QTimer;
 
 class ImagePickerDialog : public QDialog {
     Q_OBJECT
@@ -26,11 +29,16 @@ private slots:
     void onSourceChanged(int id);
     void loadLocalImages();
     void updatePreview();
+    void scheduleHubTagReload();
+    void reloadHubTags();
 
 private:
     QWidget *buildHubPage();
     QWidget *buildLocalPage();
     QWidget *buildPrivatePage();
+
+    // repository part typed on the Hub page, normalised for the Docker Hub API
+    QString  hubRepository() const;
 
     DockerManager  *m_docker;
     QString         m_currentImage;
@@ -39,7 +47,13 @@ private:
     QStackedWidget *m_srcStack     = nullptr;
 
     // Hub page
-    QLineEdit      *m_hubImage     = nullptr;
+    QLineEdit      *m_hubImage     = nullptr;   // repository (without tag)
+    QComboBox      *m_hubTag       = nullptr;   // tag, auto-filled from the registry
+    QLabel         *m_hubTagStatus = nullptr;
+
+    QNetworkAccessManager *m_net        = nullptr;
+    QNetworkReply         *m_tagReply   = nullptr;
+    QTimer                *m_tagDebounce = nullptr;
 
     // Local page
     QComboBox      *m_localCombo   = nullptr;
