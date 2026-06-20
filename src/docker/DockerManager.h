@@ -51,6 +51,12 @@ public:
     // Container logs (stdout + stderr merged), most recent `tailLines` lines
     QString      containerLogs(const QString &name, int tailLines = 200);
 
+    // Read / write an arbitrary file inside a running container (used to edit a
+    // server's config file at any time after installation).
+    QString      readFile(const QString &container, const QString &filePath);
+    bool         writeFile(const QString &container, const QString &filePath,
+                           const QString &content);
+
     // Plugin management (Minecraft PAPER/SPIGOT)
     QStringList  listPlugins(const QString &container);
     QStringList  listPluginDirs(const QString &container);

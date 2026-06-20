@@ -252,15 +252,24 @@ QStringList DockerManager::listPluginConfigs(const QString &container, const QSt
     return out.trimmed().split('\n', Qt::SkipEmptyParts);
 }
 
-QString DockerManager::readPluginConfig(const QString &container, const QString &filePath) {
+QString DockerManager::readFile(const QString &container, const QString &filePath) {
     return run({"exec", container, "cat", filePath}, 5000);
+}
+
+bool DockerManager::writeFile(const QString &container, const QString &filePath,
+                               const QString &content) {
+    QString cmd = QString("cat > '%1'").arg(filePath);
+    run({"exec", "-i", container, "sh", "-c", cmd}, 10000, content.toUtf8());
+    return true;
+}
+
+QString DockerManager::readPluginConfig(const QString &container, const QString &filePath) {
+    return readFile(container, filePath);
 }
 
 bool DockerManager::writePluginConfig(const QString &container, const QString &filePath,
                                        const QString &content) {
-    QString cmd = QString("cat > '%1'").arg(filePath);
-    run({"exec", "-i", container, "sh", "-c", cmd}, 10000, content.toUtf8());
-    return true;
+    return writeFile(container, filePath, content);
 }
 
 bool DockerManager::installPlugin(const QString &container, const QString &localJarPath) {
