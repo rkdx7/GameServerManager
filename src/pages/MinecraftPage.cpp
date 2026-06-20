@@ -11,7 +11,6 @@
 #include <QStackedWidget>
 #include <QLabel>
 #include <QLineEdit>
-#include <QInputDialog>
 #include <QComboBox>
 #include <QSpinBox>
 #include <QCheckBox>
@@ -249,18 +248,30 @@ QWidget *MinecraftPage::buildInstancePanel()
     connect(m_instanceList, &QListWidget::currentRowChanged,
             this, &MinecraftPage::switchToInstance);
 
-    // Double-click a server to rename it.
+    // Double-click a server to rename it inline (overlay editor on top of the row).
     connect(m_instanceList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
-        int row = m_instanceList->row(item);
-        if (row < 0 || row >= m_instances.size()) return;
-        bool ok = false;
-        const QString name = QInputDialog::getText(
-            this, "Renommer le serveur", "Nouveau nom :",
-            QLineEdit::Normal, m_instances[row].displayName, &ok).trimmed();
-        if (!ok || name.isEmpty() || name == m_instances[row].displayName) return;
-        m_instances[row].displayName = name;
-        item->setText(name);
-        saveInstances();
+        if (m_instanceList->row(item) < 0) return;
+        auto *editor = new QLineEdit(m_instanceList->viewport());
+        editor->setGeometry(m_instanceList->visualItemRect(item));
+        editor->setText(item->text());
+        editor->selectAll();
+        editor->setStyleSheet(
+            "QLineEdit { background: #ffffff; color: #111827; border: 1px solid #6366f1;"
+            " border-radius: 6px; padding: 0px 9px; font-size: 12px; }");
+        connect(editor, &QLineEdit::editingFinished, this, [this, editor, item]() {
+            editor->blockSignals(true);
+            const int row = m_instanceList->row(item);
+            const QString name = editor->text().trimmed();
+            if (row >= 0 && row < m_instances.size() && !name.isEmpty()
+                && name != m_instances[row].displayName) {
+                m_instances[row].displayName = name;
+                item->setText(name);
+                saveInstances();
+            }
+            editor->deleteLater();
+        });
+        editor->show();
+        editor->setFocus();
     });
 
     updateInstanceButtons();
