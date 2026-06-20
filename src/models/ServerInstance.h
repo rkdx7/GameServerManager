@@ -12,4 +12,6 @@ struct ServerInstanceConfig {
     QString imageOverride;
     QString customConfig;
     bool    customConfigEnabled = false;
+    bool    customConfigAtInstall = true;  // true = apply customConfig during install;
+                                           // false = leave it for later editing via the dashboard
 };

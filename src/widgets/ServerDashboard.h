@@ -23,6 +23,7 @@ public:
                               const QString &containerName,
                               GameType       type,
                               const QString &rconPass = {},
+                              const QString &dataPath = "/data",
                               QWidget       *parent   = nullptr);
     ~ServerDashboard();
 

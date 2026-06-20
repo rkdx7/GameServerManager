@@ -13,6 +13,15 @@
 #include <QStackedWidget>
 #include <QFrame>
 #include <QThread>
+#include <QTimer>
+#include <QUrl>
+#include <QUrlQuery>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 namespace {
 
@@ -61,6 +70,12 @@ ImagePickerDialog::ImagePickerDialog(DockerManager *docker,
                                       QWidget        *parent)
     : QDialog(parent), m_docker(docker), m_currentImage(currentImage)
 {
+    m_net = new QNetworkAccessManager(this);
+    m_tagDebounce = new QTimer(this);
+    m_tagDebounce->setSingleShot(true);
+    m_tagDebounce->setInterval(400);
+    connect(m_tagDebounce, &QTimer::timeout, this, &ImagePickerDialog::reloadHubTags);
+
     setWindowTitle("Source de l'image Docker");
     setFixedWidth(520);
     setModal(true);
@@ -178,6 +193,7 @@ ImagePickerDialog::ImagePickerDialog(DockerManager *docker,
             this, &ImagePickerDialog::onSourceChanged);
 
     updatePreview();
+    reloadHubTags();   // pre-fill tags for the image we opened with
 }
 
 // ── Page builders ─────────────────────────────────────────────────────────────
@@ -195,20 +211,69 @@ QWidget *ImagePickerDialog::buildHubPage()
         return l;
     };
 
+    // Split the incoming "repository:tag" into its two parts.
+    QString initialRepo = m_currentImage;
+    QString initialTag;
+    {
+        int slash = m_currentImage.lastIndexOf('/');
+        int colon = m_currentImage.lastIndexOf(':');
+        if (colon > slash) {   // a ':' that is part of the tag, not a registry port
+            initialRepo = m_currentImage.left(colon);
+            initialTag  = m_currentImage.mid(colon + 1);
+        }
+    }
+
     m_hubImage = new QLineEdit(w);
-    m_hubImage->setText(m_currentImage);
+    m_hubImage->setText(initialRepo);
     m_hubImage->setStyleSheet(INPUT_STYLE);
-    m_hubImage->setPlaceholderText("ex: itzg/minecraft-server:latest");
+    m_hubImage->setPlaceholderText("ex: itzg/minecraft-server");
     connect(m_hubImage, &QLineEdit::textChanged, this, &ImagePickerDialog::updatePreview);
+    // Reload the tag list (debounced) whenever the repository changes.
+    connect(m_hubImage, &QLineEdit::textChanged,
+            this, &ImagePickerDialog::scheduleHubTagReload);
+
+    // Tag combo — auto-populated from the registry, but still editable so a
+    // tag that is not listed (or a brand-new one) can be typed by hand.
+    m_hubTag = new QComboBox(w);
+    m_hubTag->setEditable(true);
+    m_hubTag->setStyleSheet(INPUT_STYLE);
+    if (!initialTag.isEmpty())
+        m_hubTag->setCurrentText(initialTag);
+    connect(m_hubTag, &QComboBox::currentTextChanged, this, &ImagePickerDialog::updatePreview);
+
+    auto *reloadBtn = new QPushButton("🔄", w);
+    reloadBtn->setFixedSize(38, 38);
+    reloadBtn->setCursor(Qt::PointingHandCursor);
+    reloadBtn->setToolTip("Recharger les tags depuis le registry");
+    reloadBtn->setStyleSheet(R"(
+        QPushButton { background: #e0e7ff; color: #4f46e5; border: none;
+                      border-radius: 8px; font-size: 14px; font-weight: 600; }
+        QPushButton:hover { background: #c7d2fe; }
+    )");
+    connect(reloadBtn, &QPushButton::clicked, this, &ImagePickerDialog::reloadHubTags);
+
+    auto *tagRow    = new QWidget(w);
+    auto *tagRowLay = new QHBoxLayout(tagRow);
+    tagRowLay->setContentsMargins(0, 0, 0, 0);
+    tagRowLay->setSpacing(8);
+    tagRowLay->addWidget(m_hubTag, 1);
+    tagRowLay->addWidget(reloadBtn);
+
+    m_hubTagStatus = new QLabel(w);
+    m_hubTagStatus->setStyleSheet("font-size: 11px; color: #94a3b8;");
+    m_hubTagStatus->setWordWrap(true);
 
     auto *note = new QLabel(
-        "ℹ  Entrez le nom complet de l'image (repository:tag). "
-        "Si vous ne précisez pas de tag, <b>:latest</b> est utilisé.", w);
+        "ℹ  Les tags sont chargés automatiquement depuis Docker Hub. "
+        "Si la liste est vide, vous pouvez saisir un tag manuellement "
+        "(par défaut <b>latest</b>).", w);
     note->setStyleSheet("font-size: 11px; color: #94a3b8;");
     note->setWordWrap(true);
 
-    form->addRow(mkLbl("Image (repository:tag)"), m_hubImage);
-    form->addRow("", note);
+    form->addRow(mkLbl("Image (repository)"), m_hubImage);
+    form->addRow(mkLbl("Tag"),                tagRow);
+    form->addRow("",                          m_hubTagStatus);
+    form->addRow("",                          note);
     return w;
 }
 
@@ -302,6 +367,8 @@ QWidget *ImagePickerDialog::buildPrivatePage()
 void ImagePickerDialog::onSourceChanged(int id)
 {
     m_srcStack->setCurrentIndex(id);
+    if (id == 0 && m_hubTag && m_hubTag->count() == 0)
+        reloadHubTags();
     updatePreview();
 }
 
@@ -331,6 +398,96 @@ void ImagePickerDialog::loadLocalImages()
     connect(thread, &QThread::finished, thread, &QThread::deleteLater);
 }
 
+QString ImagePickerDialog::hubRepository() const
+{
+    QString repo = m_hubImage ? m_hubImage->text().trimmed() : QString();
+    if (repo.isEmpty()) return {};
+
+    // Docker Hub only — strip an explicit docker.io host if the user typed one.
+    if (repo.startsWith("docker.io/"))          repo = repo.mid(10);
+    else if (repo.startsWith("registry-1.docker.io/")) repo = repo.mid(21);
+
+    // Official images (no namespace) live under the "library/" namespace.
+    if (!repo.contains('/')) repo = "library/" + repo;
+    return repo;
+}
+
+void ImagePickerDialog::scheduleHubTagReload()
+{
+    // Only meaningful while the Hub source is active.
+    if (m_sourceGroup && m_sourceGroup->checkedId() == 0)
+        m_tagDebounce->start();
+}
+
+void ImagePickerDialog::reloadHubTags()
+{
+    if (!m_hubTag) return;
+
+    const QString repo = hubRepository();
+    if (repo.isEmpty()) {
+        if (m_hubTagStatus) m_hubTagStatus->setText("");
+        return;
+    }
+
+    // Cancel any in-flight request so late replies cannot clobber newer ones.
+    if (m_tagReply) {
+        m_tagReply->abort();
+        m_tagReply->deleteLater();
+        m_tagReply = nullptr;
+    }
+
+    if (m_hubTagStatus)
+        m_hubTagStatus->setText("⏳ Chargement des tags depuis Docker Hub…");
+
+    QUrl url(QString("https://hub.docker.com/v2/repositories/%1/tags").arg(repo));
+    QUrlQuery q;
+    q.addQueryItem("page_size", "100");
+    q.addQueryItem("ordering", "last_updated");
+    url.setQuery(q);
+
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::UserAgentHeader, "GameServerManager");
+    m_tagReply = m_net->get(req);
+
+    connect(m_tagReply, &QNetworkReply::finished, this, [this, repo]() {
+        QNetworkReply *reply = m_tagReply;
+        m_tagReply = nullptr;
+        if (!reply) return;
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            if (m_hubTagStatus)
+                m_hubTagStatus->setText("⚠  Impossible de charger les tags ("
+                                        + reply->errorString() + ").");
+            return;
+        }
+
+        const auto doc  = QJsonDocument::fromJson(reply->readAll());
+        const auto arr  = doc.object().value("results").toArray();
+        QStringList tags;
+        for (const auto &v : arr) {
+            const QString name = v.toObject().value("name").toString();
+            if (!name.isEmpty()) tags << name;
+        }
+
+        // Preserve whatever the user currently has typed/selected.
+        const QString keep = m_hubTag->currentText().trimmed();
+        m_hubTag->blockSignals(true);
+        m_hubTag->clear();
+        m_hubTag->addItems(tags);
+        if (!keep.isEmpty()) m_hubTag->setCurrentText(keep);
+        else if (!tags.isEmpty()) m_hubTag->setCurrentIndex(0);
+        m_hubTag->blockSignals(false);
+
+        if (m_hubTagStatus) {
+            m_hubTagStatus->setText(tags.isEmpty()
+                ? "⚠  Aucun tag trouvé pour ce dépôt sur Docker Hub."
+                : QString("✓  %1 tag(s) disponible(s).").arg(tags.size()));
+        }
+        updatePreview();
+    });
+}
+
 void ImagePickerDialog::updatePreview()
 {
     QString img = selectedImage();
@@ -352,7 +509,12 @@ void ImagePickerDialog::updatePreview()
 QString ImagePickerDialog::selectedImage() const
 {
     int src = m_sourceGroup->checkedId();
-    if (src == 0) return m_hubImage ? m_hubImage->text().trimmed() : m_currentImage;
+    if (src == 0) {
+        QString repo = m_hubImage ? m_hubImage->text().trimmed() : m_currentImage;
+        if (repo.isEmpty()) return {};
+        QString tag = m_hubTag ? m_hubTag->currentText().trimmed() : QString();
+        return tag.isEmpty() ? repo : repo + ":" + tag;
+    }
     if (src == 1) return m_localCombo ? m_localCombo->currentText().trimmed() : QString();
     if (src == 2) {
         QString reg = m_privRegistry ? m_privRegistry->text().trimmed() : QString();

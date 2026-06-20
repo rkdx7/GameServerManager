@@ -32,9 +32,10 @@ public:
     ServerStats  getStats(const QString &name);
     int          getMinecraftPlayerCount(const QString &name);
     int          getCS2PlayerCount(const QString &name, const QString &rconPass);
-    QStringList  listBackups(const QString &name);
-    void         createBackup(const QString &name);
-    void         restoreBackup(const QString &name, const QString &backupFile);
+    QStringList  listBackups(const QString &name, const QString &dataPath = "/data");
+    void         createBackup(const QString &name, const QString &dataPath = "/data");
+    void         restoreBackup(const QString &name, const QString &backupFile,
+                               const QString &dataPath = "/data");
 
     QString      execInContainer(const QString &container,
                                    const QStringList &cmd,
@@ -50,6 +51,12 @@ public:
 
     // Container logs (stdout + stderr merged), most recent `tailLines` lines
     QString      containerLogs(const QString &name, int tailLines = 200);
+
+    // Read / write an arbitrary file inside a running container (used to edit a
+    // server's config file at any time after installation).
+    QString      readFile(const QString &container, const QString &filePath);
+    bool         writeFile(const QString &container, const QString &filePath,
+                           const QString &content);
 
     // Plugin management (Minecraft PAPER/SPIGOT)
     QStringList  listPlugins(const QString &container);

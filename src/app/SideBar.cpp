@@ -2,6 +2,7 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QLabel>
+#include <QLineEdit>
 #include <QFrame>
 #include <QScrollArea>
 
@@ -59,6 +60,28 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
         return s;
     };
     root->addWidget(makeSep());
+
+    // Search box
+    auto *search = new QLineEdit(this);
+    search->setPlaceholderText("🔍  Rechercher un jeu…");
+    search->setClearButtonEnabled(true);
+    search->setStyleSheet(R"(
+        QLineEdit {
+            background: rgba(255,255,255,0.08);
+            color: #ffffff;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            padding: 7px 10px;
+            margin: 10px 14px 6px;
+            font-size: 12px;
+        }
+        QLineEdit:focus {
+            border: 1px solid #818cf8;
+            background: rgba(99,102,241,0.18);
+        }
+    )");
+    connect(search, &QLineEdit::textChanged, this, &SideBar::filterGames);
+    root->addWidget(search);
 
     // Scrollable game list
     auto *scrollArea = new QScrollArea(this);
@@ -159,15 +182,6 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
     scrollArea->setWidget(scrollContent);
     root->addWidget(scrollArea, 1);
 
-    root->addWidget(makeSep());
-
-    // Logout (outside scroll area)
-    auto *btnLogout = new QPushButton("⏻  Déconnexion", this);
-    btnLogout->setStyleSheet(NAV_STYLE);
-    btnLogout->setCursor(Qt::PointingHandCursor);
-    btnLogout->setFlat(true);
-    connect(btnLogout, &QPushButton::clicked, this, &SideBar::logoutRequested);
-    root->addWidget(btnLogout);
     root->addSpacing(8);
 }
 
@@ -178,6 +192,7 @@ void SideBar::addCategory(QVBoxLayout *layout, const QString &name)
         "font-size: 9px; font-weight: 700; color: #6366f1;"
         "padding: 10px 20px 3px; background: transparent; letter-spacing: 2px;");
     layout->addWidget(lbl);
+    m_categories.push_back({lbl, {}});
 }
 
 void SideBar::addGame(QVBoxLayout *layout, const QString &label)
@@ -193,6 +208,25 @@ void SideBar::addGame(QVBoxLayout *layout, const QString &label)
     });
     m_navButtons.push_back(btn);
     layout->addWidget(btn);
+    if (!m_categories.isEmpty())
+        m_categories.last().games.push_back(btn);
+}
+
+void SideBar::filterGames(const QString &text)
+{
+    const QString needle = text.trimmed();
+    for (const Category &cat : m_categories) {
+        bool anyVisible = false;
+        for (QPushButton *btn : cat.games) {
+            const bool match = needle.isEmpty() ||
+                btn->text().contains(needle, Qt::CaseInsensitive);
+            btn->setVisible(match);
+            anyVisible = anyVisible || match;
+        }
+        // Hide a category header when none of its games match.
+        if (cat.label)
+            cat.label->setVisible(anyVisible);
+    }
 }
 
 void SideBar::selectButton(int index)

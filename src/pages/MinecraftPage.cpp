@@ -402,7 +402,7 @@ QWidget *MinecraftPage::buildInstallForm() {
     outer->addWidget(buildGameBanner(
         "🎮", "Minecraft Server",
         "Configurez et déployez votre serveur Minecraft via Docker.",
-        "#16a34a", "#15803d", container));
+        "#16a34a", "#15803d", ":/games/minecraft.png", container));
     outer->addSpacing(28);
 
     auto *card = new QFrame(container);

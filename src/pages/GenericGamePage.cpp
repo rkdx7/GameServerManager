@@ -445,7 +445,10 @@ QWidget *GenericGamePage::buildInstallForm()
 
     outer->addWidget(buildGameBanner(
         m_config.icon, m_config.title, m_config.description,
-        m_config.btnColorStart, m_config.btnColorEnd, container));
+        m_config.btnColorStart, m_config.btnColorEnd,
+        m_config.bannerImage.isEmpty() ? QStringLiteral(":/games/generic.png")
+                                       : m_config.bannerImage,
+        container));
 
     if (!m_config.note.isEmpty()) {
         outer->addSpacing(12);

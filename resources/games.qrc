@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!-- Game artwork shown in the banner at the top of each game server page.
+         Drop a PNG/JPG named <game>.png in resources/games/ and reference it
+         from the page (or GamePageConfig::bannerImage) as ":/games/<game>.png".
+         If the file is missing the banner falls back to the emoji icon. -->
+    <qresource prefix="/games">
+        <file alias="minecraft.png">games/minecraft.png</file>
+        <file alias="cs2.png">games/cs2.png</file>
+        <file alias="generic.png">games/generic.png</file>
+    </qresource>
+</RCC>
