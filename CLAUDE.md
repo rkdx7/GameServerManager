@@ -59,6 +59,6 @@ Every game server must expose a **Logs** tab in its running-server view. This is
 
 ## Git workflow
 
-Branch off `main` and open a PR for review before merging — do not commit directly to `main`.
+For every new task, create a dedicated branch that starts from `dev`. Do the work on that branch, commit the changes on it, and once the task is finished merge it back into `dev`.
 
-For each new feature, create a dedicated branch, commit the changes on it, and merge it into `dev` once the feature is finished.
+Do not commit directly to `dev` or `main`.
