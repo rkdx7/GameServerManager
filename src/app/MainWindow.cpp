@@ -7,6 +7,8 @@
 #include "InfraPage.h"
 #include "VMStorage.h"
 #include "DeploymentTargetSelector.h"
+#include "HelpDialog.h"
+#include "WelcomeDialog.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -17,6 +19,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QSettings>
+#include <QTimer>
 
 // ── Game config helpers ───────────────────────────────────────────────────────
 
@@ -1039,6 +1042,18 @@ MainWindow::MainWindow(QWidget *parent)
     root->addWidget(contentFrame, 1);
 
     connect(sidebar, &SideBar::pageSelected, m_stack, &QStackedWidget::setCurrentIndex);
+
+    // Centre d'aide (icône 📖 du menu fixe de la barre latérale)
+    connect(sidebar, &SideBar::helpRequested, this, [this]() {
+        HelpDialog dlg(this);
+        dlg.exec();
+    });
+
+    // Tuto Docker au tout premier lancement (une seule fois), une fois la
+    // fenêtre affichée pour qu'elle serve de parent visible.
+    QTimer::singleShot(0, this, [this]() {
+        WelcomeDialog::showIfFirstLaunch(this);
+    });
 
     // Close button (X) anchored to the top-right corner of the frameless window
     auto *closeBtn = new QPushButton("✕", this);

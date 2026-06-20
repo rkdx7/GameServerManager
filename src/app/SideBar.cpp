@@ -1,10 +1,14 @@
 #include "SideBar.h"
+#include "HelpDialog.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
 #include <QLineEdit>
 #include <QFrame>
 #include <QScrollArea>
+#include <QDesktopServices>
+#include <QUrl>
 
 namespace {
 const char *NAV_STYLE = R"(
@@ -169,16 +173,68 @@ SideBar::SideBar(QWidget *parent) : QWidget(parent) {
     addGame(nav, "🎮  Pavlov VR");          // 35
     addGame(nav, "🔫  Sauerbraten");        // 36
 
-    // ── Infrastructure ──────────────────────────────────────────────────
-    addCategory(nav, "INFRASTRUCTURE");
-    addGame(nav, "☁  Infra");              // 37
-
     nav->addStretch();
 
     scrollArea->setWidget(scrollContent);
     root->addWidget(scrollArea, 1);
 
-    root->addSpacing(8);
+    // ── Pied de barre FIXE (ne défile pas avec la liste de jeux) ─────────
+    root->addWidget(makeSep());
+
+    // Bouton Infra épinglé juste au-dessus des icônes (index 37 = stack Infra).
+    const int infraIdx = m_navButtons.size();   // 37
+    auto *infraBtn = new QPushButton("☁  Infra & Cloud", this);
+    infraBtn->setStyleSheet(NAV_STYLE);
+    infraBtn->setCursor(Qt::PointingHandCursor);
+    infraBtn->setFlat(true);
+    connect(infraBtn, &QPushButton::clicked, this, [this, infraIdx]() {
+        selectButton(infraIdx);
+        emit pageSelected(infraIdx);
+    });
+    m_navButtons.push_back(infraBtn);
+    root->addWidget(infraBtn);
+
+    root->addWidget(makeSep());
+
+    // Menu d'icônes fixe en bas à gauche : dépôt GitHub + aide / docs.
+    const char *ICON_STYLE = R"(
+        QPushButton {
+            background: rgba(255,255,255,0.06);
+            color: #ffffff;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 9px;
+            font-size: 16px;
+        }
+        QPushButton:hover {
+            background: rgba(129,140,248,0.30);
+            border: 1px solid #818cf8;
+        }
+    )";
+
+    auto *iconRow = new QHBoxLayout();
+    iconRow->setContentsMargins(14, 10, 14, 12);
+    iconRow->setSpacing(8);
+
+    auto *ghBtn = new QPushButton("🐙", this);
+    ghBtn->setFixedSize(36, 32);
+    ghBtn->setCursor(Qt::PointingHandCursor);
+    ghBtn->setToolTip("Code source sur GitHub");
+    ghBtn->setStyleSheet(ICON_STYLE);
+    connect(ghBtn, &QPushButton::clicked, this, []() {
+        QDesktopServices::openUrl(QUrl(HelpDialog::kRepoUrl));
+    });
+    iconRow->addWidget(ghBtn);
+
+    auto *helpBtn = new QPushButton("📖", this);
+    helpBtn->setFixedSize(36, 32);
+    helpBtn->setCursor(Qt::PointingHandCursor);
+    helpBtn->setToolTip("Centre d'aide & documentation");
+    helpBtn->setStyleSheet(ICON_STYLE);
+    connect(helpBtn, &QPushButton::clicked, this, &SideBar::helpRequested);
+    iconRow->addWidget(helpBtn);
+
+    iconRow->addStretch();
+    root->addLayout(iconRow);
 }
 
 void SideBar::addCategory(QVBoxLayout *layout, const QString &name)

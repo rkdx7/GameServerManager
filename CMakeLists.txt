@@ -39,6 +39,8 @@ add_executable(app-qt WIN32
     src/dialogs/ImagePickerDialog.cpp src/dialogs/ImagePickerDialog.h
     src/dialogs/AddCustomVMDialog.cpp src/dialogs/AddCustomVMDialog.h
     src/dialogs/CreateVMDialog.cpp   src/dialogs/CreateVMDialog.h
+    src/dialogs/HelpDialog.cpp       src/dialogs/HelpDialog.h
+    src/dialogs/WelcomeDialog.cpp    src/dialogs/WelcomeDialog.h
 
     # Docker / remote execution
     src/docker/DockerManager.cpp    src/docker/DockerManager.h

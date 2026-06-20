@@ -14,6 +14,7 @@ public:
 
 signals:
     void pageSelected(int index);
+    void helpRequested();
 
 private:
     void addCategory(QVBoxLayout *layout, const QString &name);
