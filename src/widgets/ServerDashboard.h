@@ -13,6 +13,7 @@ class QTabWidget;
 class PluginManagerWidget;
 class GameConsoleWidget;
 class GameLogsWidget;
+class ConfigEditorWidget;
 
 enum class GameType { Minecraft, CS2, Generic };
 
@@ -22,8 +23,9 @@ public:
     explicit ServerDashboard(DockerManager *docker,
                               const QString &containerName,
                               GameType       type,
-                              const QString &rconPass = {},
-                              QWidget       *parent   = nullptr);
+                              const QString &rconPass       = {},
+                              const QString &configFilePath = {},
+                              QWidget       *parent          = nullptr);
     ~ServerDashboard();
 
     void startPolling();
@@ -47,6 +49,7 @@ private:
     QString        m_containerName;
     GameType       m_gameType;
     QString        m_rconPass;
+    QString        m_configFilePath;
     QTimer        *m_timer;
     bool           m_refreshing = false;
 
@@ -86,4 +89,7 @@ private:
 
     // Logs viewer (all games)
     GameLogsWidget      *m_logs = nullptr;
+
+    // Config file editor (games with a known config path)
+    ConfigEditorWidget  *m_configEditor = nullptr;
 };

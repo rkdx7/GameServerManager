@@ -72,6 +72,7 @@ void MinecraftPage::loadInstances()
         inst.imageOverride        = s.value(pfx + "/imageOverride").toString();
         inst.customConfigEnabled  = s.value(pfx + "/customConfigEnabled", false).toBool();
         inst.customConfig         = s.value(pfx + "/customConfig").toString();
+        inst.customConfigAtInstall = s.value(pfx + "/customConfigAtInstall", true).toBool();
 
         int fc = s.value(pfx + "/fields/count", 0).toInt();
         for (int j = 0; j < fc; ++j) {
@@ -103,6 +104,7 @@ void MinecraftPage::saveInstances()
         s.setValue(pfx + "/imageOverride",       inst.imageOverride);
         s.setValue(pfx + "/customConfigEnabled", inst.customConfigEnabled);
         s.setValue(pfx + "/customConfig",        inst.customConfig);
+        s.setValue(pfx + "/customConfigAtInstall", inst.customConfigAtInstall);
 
         QStringList keys = inst.fieldValues.keys();
         s.setValue(pfx + "/fields/count", keys.size());
@@ -252,6 +254,7 @@ void MinecraftPage::saveCurrentFormState()
     inst.imageOverride             = m_imageOverride;
     inst.customConfigEnabled       = m_advancedToggleBtn && m_advancedToggleBtn->isChecked();
     inst.customConfig              = m_customConfigEdit  ? m_customConfigEdit->toPlainText() : QString();
+    inst.customConfigAtInstall     = !m_customTimingCombo || m_customTimingCombo->currentIndex() == 0;
     saveInstances();
 }
 
@@ -282,6 +285,7 @@ void MinecraftPage::loadFormFromInstance(const ServerInstanceConfig &inst)
     if (m_advancedToggleBtn) m_advancedToggleBtn->setChecked(inst.customConfigEnabled);
     if (m_advancedContent)   m_advancedContent->setVisible(inst.customConfigEnabled);
     if (m_customConfigEdit)  m_customConfigEdit->setPlainText(inst.customConfig);
+    if (m_customTimingCombo) m_customTimingCombo->setCurrentIndex(inst.customConfigAtInstall ? 0 : 1);
 }
 
 void MinecraftPage::switchToInstance(int idx)
@@ -510,6 +514,27 @@ QWidget *MinecraftPage::buildInstallForm() {
     docLink->setStyleSheet("font-size: 13px; background: transparent;");
     advContentLayout->addWidget(docLink);
 
+    // When to apply the custom config: during install, or later (the config file
+    // stays editable after installation via the dashboard "Configuration" tab).
+    auto *timingRow = new QHBoxLayout;
+    timingRow->setSpacing(8);
+    auto *timingLbl = new QLabel("Quand personnaliser :", m_advancedContent);
+    timingLbl->setStyleSheet("font-size: 12px; color: #374151; background: transparent;");
+    m_customTimingCombo = new QComboBox(m_advancedContent);
+    m_customTimingCombo->addItem("À l'installation");
+    m_customTimingCombo->addItem("Plus tard (onglet Configuration)");
+    m_customTimingCombo->setStyleSheet(R"(
+        QComboBox {
+            border: 1.5px solid #e2e8f0; border-radius: 8px;
+            padding: 6px 10px; font-size: 12px;
+            background: #f8fafc; color: #1e293b;
+        }
+        QComboBox:focus { border-color: #6366f1; }
+    )");
+    timingRow->addWidget(timingLbl);
+    timingRow->addWidget(m_customTimingCombo, 1);
+    advContentLayout->addLayout(timingRow);
+
     m_customConfigEdit = new QTextEdit(m_advancedContent);
     m_customConfigEdit->setPlaceholderText(
         "Collez votre server.properties ici...\n"
@@ -528,6 +553,18 @@ QWidget *MinecraftPage::buildInstallForm() {
         QTextEdit:focus { border-color: #6366f1; background: #ffffff; }
     )");
     advContentLayout->addWidget(m_customConfigEdit);
+
+    auto *timingHint = new QLabel(
+        "La configuration restera modifiable après l'installation depuis "
+        "l'onglet « Configuration » du serveur.", m_advancedContent);
+    timingHint->setStyleSheet("font-size: 11px; color: #94a3b8; background: transparent;");
+    timingHint->setWordWrap(true);
+    advContentLayout->addWidget(timingHint);
+
+    connect(m_customTimingCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
+        if (m_customConfigEdit) m_customConfigEdit->setEnabled(idx == 0);
+    });
 
     advOuter->addWidget(m_advancedContent);
     outer->addWidget(advCard);
@@ -578,7 +615,8 @@ void MinecraftPage::checkStatus() {
 
     if (m_docker->containerExists(inst.containerName)) {
         if (!m_dashboards.contains(inst.id)) {
-            auto *dash = new ServerDashboard(m_docker, inst.containerName, GameType::Minecraft, {}, this);
+            auto *dash = new ServerDashboard(m_docker, inst.containerName, GameType::Minecraft,
+                                             {}, "/data/server.properties", this);
             connect(dash, &ServerDashboard::uninstallRequested,
                     this, &MinecraftPage::onUninstall);
             m_stack->addWidget(dash);
@@ -642,7 +680,9 @@ void MinecraftPage::onInstall() {
     const QString mem          = inst.fieldValues.value("memory", "2G");
     const int     port         = inst.port;
     const QString image        = inst.imageOverride.isEmpty() ? QString(DEFAULT_IMAGE) : inst.imageOverride;
-    const bool    customEnabled = inst.customConfigEnabled;
+    // Only push the pasted config at install time when the user chose to
+    // customize "now"; otherwise it stays editable from the dashboard later.
+    const bool    customEnabled = inst.customConfigEnabled && inst.customConfigAtInstall;
     const QString customConfig  = inst.customConfig;
 
     bool    needsLogin = m_needsLogin;

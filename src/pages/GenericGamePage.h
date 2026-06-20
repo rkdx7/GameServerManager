@@ -17,6 +17,7 @@ class QLabel;
 class QPushButton;
 class QListWidget;
 class QTextEdit;
+class QComboBox;
 
 class GenericGamePage : public QWidget {
     Q_OBJECT
@@ -69,6 +70,7 @@ private:
     QPushButton *m_advancedToggleBtn = nullptr;
     QWidget     *m_advancedContent   = nullptr;
     QTextEdit   *m_customConfigEdit  = nullptr;
+    QComboBox   *m_customTimingCombo = nullptr;  // when to apply the custom config
 
     // Image override
     QString  m_imageOverride;

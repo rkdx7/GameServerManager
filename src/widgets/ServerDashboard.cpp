@@ -2,6 +2,7 @@
 #include "PluginManagerWidget.h"
 #include "GameConsoleWidget.h"
 #include "GameLogsWidget.h"
+#include "ConfigEditorWidget.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -74,12 +75,14 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
                                    const QString  &containerName,
                                    GameType        type,
                                    const QString  &rconPass,
+                                   const QString  &configFilePath,
                                    QWidget        *parent)
     : QWidget(parent)
     , m_docker(docker)
     , m_containerName(containerName)
     , m_gameType(type)
     , m_rconPass(rconPass)
+    , m_configFilePath(configFilePath)
 {
     // ── Status row ──────────────────────────────────────────────────────
     m_statusDot  = new QLabel("●", this);
@@ -316,6 +319,18 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
         if (m_logs && tabs->widget(idx) == m_logs)
             m_logs->refresh();
     });
+
+    // ── Configuration tab (games with a known config path) ───────────────────
+    // Lets the user edit the server's main config file at any time after
+    // installation — it is loaded lazily the first time the tab is opened.
+    if (!m_configFilePath.isEmpty()) {
+        m_configEditor = new ConfigEditorWidget(docker, containerName, m_configFilePath, tabs);
+        tabs->addTab(m_configEditor, "⚙️  Configuration");
+        connect(tabs, &QTabWidget::currentChanged, this, [this, tabs](int idx) {
+            if (m_configEditor && tabs->widget(idx) == m_configEditor)
+                m_configEditor->ensureLoaded();
+        });
+    }
 
     auto *mainLay = new QVBoxLayout(this);
     mainLay->setContentsMargins(0, 0, 0, 0);

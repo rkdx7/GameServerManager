@@ -28,6 +28,7 @@ add_executable(app-qt WIN32
     src/widgets/PluginManagerWidget.cpp src/widgets/PluginManagerWidget.h
     src/widgets/GameConsoleWidget.cpp src/widgets/GameConsoleWidget.h
     src/widgets/GameLogsWidget.cpp  src/widgets/GameLogsWidget.h
+    src/widgets/ConfigEditorWidget.cpp src/widgets/ConfigEditorWidget.h
     src/widgets/DeploymentTargetSelector.cpp src/widgets/DeploymentTargetSelector.h
     src/widgets/GameBanner.h
 
