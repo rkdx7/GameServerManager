@@ -33,6 +33,7 @@ add_executable(app-qt WIN32
     src/widgets/ConfigEditorWidget.cpp src/widgets/ConfigEditorWidget.h
     src/widgets/DeploymentTargetSelector.cpp src/widgets/DeploymentTargetSelector.h
     src/widgets/GameBanner.h
+    src/widgets/ServerPanelState.h
 
     # Dialogs
     src/dialogs/ImagePickerDialog.cpp src/dialogs/ImagePickerDialog.h
