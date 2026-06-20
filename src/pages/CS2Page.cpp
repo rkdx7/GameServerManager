@@ -3,7 +3,6 @@
 #include "ServerDashboard.h"
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
-#include "GameBanner.h"
 #include "ServerPanelState.h"
 
 #include <QVBoxLayout>
@@ -248,6 +247,25 @@ QWidget *CS2Page::buildInstancePanel()
     connect(m_instanceList, &QListWidget::currentRowChanged,
             this, &CS2Page::switchToInstance);
 
+    // Double-click a server to rename it inline.
+    m_instanceList->setEditTriggers(QAbstractItemView::DoubleClicked);
+    connect(m_instanceList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
+        int row = m_instanceList->row(item);
+        if (row < 0 || row >= m_instances.size()) return;
+        const QString name = item->text().trimmed();
+        if (name.isEmpty() || name == m_instances[row].displayName) {
+            m_instanceList->blockSignals(true);
+            item->setText(m_instances[row].displayName);
+            m_instanceList->blockSignals(false);
+            return;
+        }
+        m_instances[row].displayName = name;
+        m_instanceList->blockSignals(true);
+        item->setText(name);
+        m_instanceList->blockSignals(false);
+        saveInstances();
+    });
+
     updateInstanceButtons();
     return panel;
 }
@@ -426,10 +444,6 @@ QWidget *CS2Page::buildInstallForm() {
     gsltNote->setStyleSheet("font-size: 12px; color: #94a3b8; background: transparent;");
     gsltNote->setWordWrap(true);
 
-    outer->addWidget(buildGameBanner(
-        "🔫", "CS2 / CS:GO Server",
-        "Déployez un serveur CS2 dédié via Docker (image joedwards32/cs2).",
-        "#ea580c", "#c2410c", ":/games/cs2.png", container));
     outer->addSpacing(12);
     outer->addWidget(gsltNote);
     outer->addSpacing(24);

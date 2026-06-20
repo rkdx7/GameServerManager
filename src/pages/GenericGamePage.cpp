@@ -3,7 +3,6 @@
 #include "ServerDashboard.h"
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
-#include "GameBanner.h"
 #include "ServerPanelState.h"
 
 #include <QVBoxLayout>
@@ -274,6 +273,25 @@ QWidget *GenericGamePage::buildInstancePanel()
     connect(m_instanceList, &QListWidget::currentRowChanged,
             this, &GenericGamePage::switchToInstance);
 
+    // Double-click a server to rename it inline.
+    m_instanceList->setEditTriggers(QAbstractItemView::DoubleClicked);
+    connect(m_instanceList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
+        int row = m_instanceList->row(item);
+        if (row < 0 || row >= m_instances.size()) return;
+        const QString name = item->text().trimmed();
+        if (name.isEmpty() || name == m_instances[row].displayName) {
+            m_instanceList->blockSignals(true);
+            item->setText(m_instances[row].displayName);
+            m_instanceList->blockSignals(false);
+            return;
+        }
+        m_instances[row].displayName = name;
+        m_instanceList->blockSignals(true);
+        item->setText(name);
+        m_instanceList->blockSignals(false);
+        saveInstances();
+    });
+
     updateInstanceButtons();
     return panel;
 }
@@ -466,13 +484,6 @@ QWidget *GenericGamePage::buildInstallForm()
     topRow->addLayout(gearCol);
     outer->addLayout(topRow);
     outer->addSpacing(8);
-
-    outer->addWidget(buildGameBanner(
-        m_config.icon, m_config.title, m_config.description,
-        m_config.btnColorStart, m_config.btnColorEnd,
-        m_config.bannerImage.isEmpty() ? QStringLiteral(":/games/generic.png")
-                                       : m_config.bannerImage,
-        container));
 
     if (!m_config.note.isEmpty()) {
         outer->addSpacing(12);
