@@ -83,6 +83,14 @@ Tous les autres jeux sont gérés par un moteur de configuration générique uni
 
 ## ⚡ Démarrage rapide
 
+### Téléchargement
+
+La dernière version **déjà compilée** est disponible dans les
+**[Releases GitHub du projet](../../releases/latest)** — pas besoin de compiler
+quoi que ce soit. Téléchargez l'exécutable de la dernière release et lancez-le directement.
+
+> Vous préférez compiler depuis les sources ? Suivez les étapes ci-dessous.
+
 ### Prérequis
 
 - **Windows 10/11**
