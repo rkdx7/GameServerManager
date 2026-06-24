@@ -4,6 +4,7 @@
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
 #include "ServerPanelState.h"
+#include "GameBanner.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -451,7 +452,7 @@ QWidget *MinecraftPage::buildInstallForm() {
     outer->addWidget(buildGameBanner(
         "🎮", "Minecraft Server",
         "Configurez et déployez votre serveur Minecraft via Docker.",
-        "#16a34a", "#15803d", container));
+        "#16a34a", "#15803d", ":/games/minecraft.png", container));
     outer->addSpacing(12);
 
     outer->addLayout(topRow);

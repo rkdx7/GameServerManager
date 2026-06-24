@@ -4,6 +4,7 @@
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
 #include "ServerPanelState.h"
+#include "GameBanner.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -453,7 +454,7 @@ QWidget *CS2Page::buildInstallForm() {
     outer->addWidget(buildGameBanner(
         "🔫", "CS2 / CS:GO Server",
         "Déployez un serveur CS2 dédié via Docker (image joedwards32/cs2).",
-        "#ea580c", "#c2410c", container));
+        "#ea580c", "#c2410c", ":/games/cs2.png", container));
     outer->addSpacing(12);
     outer->addLayout(topRow);
     outer->addSpacing(8);

@@ -4,6 +4,7 @@
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
 #include "ServerPanelState.h"
+#include "GameBanner.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -492,7 +493,7 @@ QWidget *GenericGamePage::buildInstallForm()
 
     outer->addWidget(buildGameBanner(
         m_config.icon, m_config.title, m_config.description,
-        m_config.btnColorStart, m_config.btnColorEnd, container));
+        m_config.btnColorStart, m_config.btnColorEnd, m_config.bannerImage, container));
     outer->addSpacing(12);
 
     outer->addLayout(topRow);
