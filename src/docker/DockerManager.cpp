@@ -204,6 +204,33 @@ QString DockerManager::execInContainer(const QString &container,
     return run(args, timeoutMs);
 }
 
+QString DockerManager::containerImage(const QString &name) {
+    return run({"inspect", "--format", "{{.Config.Image}}", name}, 8000).trimmed();
+}
+
+QString DockerManager::containerEnv(const QString &name, const QString &key) {
+    QString out = run({"inspect", "--format",
+                        "{{range .Config.Env}}{{println .}}{{end}}", name}, 8000);
+    const QString prefix = key + "=";
+    const auto lines = out.split('\n', Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        if (line.startsWith(prefix))
+            return line.mid(prefix.size()).trimmed();
+    }
+    return {};
+}
+
+QString DockerManager::readContainerFile(const QString &name, const QString &filePath) {
+    return run({"exec", name, "cat", filePath}, 8000);
+}
+
+bool DockerManager::writeContainerFile(const QString &name, const QString &filePath,
+                                        const QString &content) {
+    QString cmd = QString("cat > '%1'").arg(filePath);
+    run({"exec", "-i", name, "sh", "-c", cmd}, 15000, content.toUtf8());
+    return true;
+}
+
 QString DockerManager::dockerInfo() {
     return run({"info", "--format", "{{.ServerVersion}}"}, 10000);
 }

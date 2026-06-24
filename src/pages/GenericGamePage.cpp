@@ -440,12 +440,14 @@ QWidget *GenericGamePage::buildInstallForm()
     topRow->setSpacing(0);
     topRow->addStretch();
     topRow->addLayout(gearCol);
-    outer->addLayout(topRow);
-    outer->addSpacing(8);
 
     outer->addWidget(buildGameBanner(
         m_config.icon, m_config.title, m_config.description,
         m_config.btnColorStart, m_config.btnColorEnd, container));
+    outer->addSpacing(12);
+
+    outer->addLayout(topRow);
+    outer->addSpacing(8);
 
     if (!m_config.note.isEmpty()) {
         outer->addSpacing(12);
@@ -678,6 +680,8 @@ void GenericGamePage::checkStatus()
             auto *dash = new ServerDashboard(m_docker, inst.containerName, GameType::Generic, {}, this);
             connect(dash, &ServerDashboard::uninstallRequested,
                     this, &GenericGamePage::onUninstall);
+            connect(dash, &ServerDashboard::upgradeRequested,
+                    this, &GenericGamePage::onUpgrade);
             m_stack->addWidget(dash);
             m_dashboards[inst.id] = dash;
         }
@@ -841,4 +845,56 @@ void GenericGamePage::onUninstall()
         }
         m_stack->setCurrentIndex(0);
     });
+}
+
+// ── Upgrade (change version) ────────────────────────────────────────────────────
+
+void GenericGamePage::onUpgrade()
+{
+    if (m_currentInstanceIdx < 0 || m_currentInstanceIdx >= m_instances.size()) return;
+
+    // The "version" of a generic game server is its Docker image/tag — pick a new
+    // one, then recreate the container while keeping its data volume.
+    const QString before = m_imageOverride;
+    openImagePicker();
+    if (m_imageOverride == before) return;   // cancelled or unchanged
+
+    const QString name  = m_instances[m_currentInstanceIdx].containerName;
+    const QString image = m_imageOverride.isEmpty() ? m_config.dockerImage : m_imageOverride;
+
+    if (QMessageBox::question(this, "Changer de version",
+            QString("Le serveur « %1 » va être recréé avec l'image :\n%2\n\n"
+                    "Les données (volume Docker) sont conservées.\n\nContinuer ?")
+                .arg(name, image))
+        != QMessageBox::Yes)
+        return;
+
+    recreateContainer("⏳ Changement de version… recréation du conteneur");
+}
+
+// Tear down the running container (keeping its data volume) and reinstall with the
+// current instance config. Reuses onInstall() so all install logic stays in one place.
+void GenericGamePage::recreateContainer(const QString &statusMsg)
+{
+    if (m_currentInstanceIdx < 0 || m_currentInstanceIdx >= m_instances.size()) return;
+    const QString id   = m_instances[m_currentInstanceIdx].id;
+    const QString name = m_instances[m_currentInstanceIdx].containerName;
+
+    if (m_dashboards.contains(id)) {
+        m_dashboards[id]->stopPolling();
+        m_stack->removeWidget(m_dashboards[id]);
+        m_dashboards[id]->deleteLater();
+        m_dashboards.remove(id);
+    }
+    m_stack->setCurrentIndex(0);
+    m_installStatus->setStyleSheet("font-size: 13px; color: #6366f1; background: transparent;");
+    m_installStatus->setText(statusMsg);
+
+    DockerManager *docker = m_docker;
+    auto *thread = QThread::create([docker, name]() {
+        docker->removeContainer(name, false);   // keep the named _data volume
+    });
+    connect(thread, &QThread::finished, this, [this]() { onInstall(); });
+    connect(thread, &QThread::finished, thread, &QThread::deleteLater);
+    thread->start();
 }

@@ -31,6 +31,7 @@ public:
 
 signals:
     void uninstallRequested();
+    void upgradeRequested();
 
 private slots:
     void refresh();

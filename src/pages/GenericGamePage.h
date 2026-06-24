@@ -29,6 +29,7 @@ public:
 private slots:
     void onInstall();
     void onUninstall();
+    void onUpgrade();
     void openImagePicker();
     void switchToInstance(int idx);
     void addInstance();
@@ -39,6 +40,7 @@ private:
     QWidget *buildInstallForm();
     QWidget *buildInstancePanel();
     QString  fieldValue(const QString &key) const;
+    void     recreateContainer(const QString &statusMsg);
     void     saveCurrentFormState();
     void     loadFormFromInstance(const ServerInstanceConfig &inst);
     void     loadInstances();
