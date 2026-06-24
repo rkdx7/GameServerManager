@@ -24,5 +24,6 @@ private:
     QSpinBox  *m_port;
     QLineEdit *m_user;
     QLineEdit *m_keyPath;
+    QLineEdit *m_sudoPass;
     QLabel    *m_statusLabel;
 };

@@ -18,5 +18,10 @@ struct VMInstance {
     QString     instanceType;
     QString     scaApiToken;
     QString     scaServerId;
+    QString     sudoPassword;   // optional; used to run privileged cmds for non-root users
     QStringList deployedServers;
+
+    // A connection is "root" when no sudo elevation is needed for privileged
+    // operations (Docker install, usermod, …).
+    bool isRoot() const { return sshUser.trimmed() == "root"; }
 };

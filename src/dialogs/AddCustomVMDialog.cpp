@@ -48,7 +48,8 @@ AddCustomVMDialog::AddCustomVMDialog(QWidget *parent)
 
     auto *infoLbl = new QLabel(
         "Connectez une VM existante en fournissant son adresse IP et les détails SSH.\n"
-        "Docker doit être déjà installé sur la machine.", this);
+        "Si Docker n'est pas installé, vous pourrez l'installer depuis la console "
+        "d'administration de la VM.", this);
     infoLbl->setStyleSheet("font-size: 12px; color: #64748b;");
     infoLbl->setWordWrap(true);
     root->addWidget(infoLbl);
@@ -114,7 +115,21 @@ AddCustomVMDialog::AddCustomVMDialog(QWidget *parent)
     keyLayout->addWidget(browseBtn);
     form->addRow(mkL("Clé SSH privée"), keyRow);
 
+    m_sudoPass = new QLineEdit(card);
+    m_sudoPass->setEchoMode(QLineEdit::Password);
+    m_sudoPass->setPlaceholderText("Requis seulement si l'utilisateur n'est pas root");
+    m_sudoPass->setStyleSheet(INPUT_STYLE);
+    form->addRow(mkL("Mot de passe sudo"), m_sudoPass);
+
     root->addWidget(card);
+
+    auto *sudoHint = new QLabel(
+        "💡 Pour un utilisateur non-root, le mot de passe sudo permet d'installer Docker "
+        "et d'ajouter l'utilisateur au groupe <i>docker</i>. Laissez vide pour saisir le "
+        "mot de passe manuellement dans un terminal au moment voulu.", this);
+    sudoHint->setStyleSheet("font-size: 11px; color: #94a3b8;");
+    sudoHint->setWordWrap(true);
+    root->addWidget(sudoHint);
 
     // Status label
     m_statusLabel = new QLabel("", this);
@@ -183,6 +198,7 @@ VMInstance AddCustomVMDialog::result() const
     vm.sshPort  = m_port->value();
     vm.sshUser  = m_user->text().trimmed();
     vm.sshKeyPath = m_keyPath->text().trimmed();
+    vm.sudoPassword = m_sudoPass->text();
     vm.provider = VMProvider::Custom;
     vm.status   = VMStatus::Unknown;
     return vm;
