@@ -1,0 +1,59 @@
+name: Build & Release
+
+# Se déclenche uniquement sur la branche main.
+on:
+  push:
+    branches: [main]
+
+# Nécessaire pour créer des tags et publier des releases.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Installe Qt 6.7.3 (MinGW 64-bit) + le compilateur MinGW,
+      # comme la toolchain locale décrite dans build.bat.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          tools: 'tools_mingw1310'
+          cache: true
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      - name: Build
+        run: cmake --build build -j 4
+
+      # Copie l'exe dans un dossier propre puis déploie les DLLs Qt à côté.
+      - name: Package
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build/app-qt.exe dist/
+          windeployqt dist/app-qt.exe --release --no-translations
+          Compress-Archive -Path dist/* -DestinationPath GameServerManager-windows.zip -Force
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: GameServerManager v1.0.${{ github.run_number }}
+          body: |
+            Build automatique depuis `main` (commit ${{ github.sha }}).
+          files: GameServerManager-windows.zip
