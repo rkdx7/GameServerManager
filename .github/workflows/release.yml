@@ -67,9 +67,20 @@ jobs:
         run: |
           $v = '${{ env.QT_VERSION }}'
           $minor = ($v -split '\.')[0..1] -join '.'
-          $url = "https://download.qt.io/official_releases/qt/$minor/$v/submodules/qtbase-everywhere-src-$v.zip"
-          Write-Host "Downloading $url"
-          Invoke-WebRequest -Uri $url -OutFile qtbase.zip
+          # Older Qt point releases live under /archive/; current ones under
+          # /official_releases/. Try both so the workflow keeps working as the
+          # pinned version ages out of the "current" mirror.
+          $urls = @(
+            "https://download.qt.io/archive/qt/$minor/$v/submodules/qtbase-everywhere-src-$v.zip",
+            "https://download.qt.io/official_releases/qt/$minor/$v/submodules/qtbase-everywhere-src-$v.zip"
+          )
+          $ok = $false
+          foreach ($url in $urls) {
+            Write-Host "Trying $url"
+            try { Invoke-WebRequest -Uri $url -OutFile qtbase.zip; $ok = $true; break }
+            catch { Write-Host "  -> $($_.Exception.Message)" }
+          }
+          if (-not $ok) { throw "Could not download qtbase source for $v" }
           Expand-Archive qtbase.zip -DestinationPath C:\qtsrc
           # Normalise the extracted folder name.
           $dir = (Get-ChildItem C:\qtsrc -Directory | Select-Object -First 1).FullName
