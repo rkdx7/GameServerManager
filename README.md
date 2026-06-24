@@ -141,4 +141,11 @@ Consultez [docs/architecture.md](docs/architecture.md) et [docs/build.md](docs/b
 
 ## 📄 Licence
 
-Licence à définir. En attendant, tous droits réservés à l'auteur du projet.
+Ce projet est distribué sous licence **[PolyForm Noncommercial 1.0.0](LICENSE)**.
+
+- ✅ **Libre d'utilisation, de modification et de redistribution** pour tout usage **non commercial** (usage personnel, projets amateurs, éducation, organismes à but non lucratif…).
+- ❌ **Tout usage commercial est interdit** sans l'accord écrit de l'auteur.
+
+Pour une licence commerciale, contactez l'auteur du projet.
+
+> ℹ️ Il ne s'agit pas d'une licence « open source » au sens de l'OSI (qui imposerait d'autoriser l'usage commercial), mais d'une licence *source-available* : le code est public et librement utilisable, à l'exception de l'exploitation commerciale.
