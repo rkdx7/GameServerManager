@@ -3,8 +3,10 @@
 #include "AddCustomVMDialog.h"
 #include "CreateVMDialog.h"
 #include "VMAdminPage.h"
+#include "RemoteShell.h"
 
 #include <QVBoxLayout>
+#include <QThread>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -237,6 +239,32 @@ void InfraPage::onAddCustomVM()
     VMStorage::save(*m_vmList);
     refreshVMList();
     emit vmListChanged();
+
+    // For a non-root account, Docker commands require the user to be in the
+    // `docker` group. Try to add them automatically (best-effort: only works if
+    // Docker is already installed and a sudo password was provided). If Docker
+    // isn't installed yet, the Install Docker step does this again.
+    if (!vm.isRoot()) {
+        QString sudoNote = vm.sudoPassword.isEmpty()
+            ? "\n\nAucun mot de passe sudo n'a été enregistré : si l'ajout échoue, "
+              "utilisez le bouton « Installer Docker » dans la console d'administration, "
+              "qui vous guidera."
+            : "";
+        QMessageBox::information(this, "Utilisateur non-root",
+            "L'utilisateur <b>" + vm.sshUser + "</b> n'est pas root. Pour lancer des "
+            "commandes Docker sans sudo, il doit appartenir au groupe <b>docker</b>.<br><br>"
+            "Tentative d'ajout automatique au groupe en arrière-plan."
+            + sudoNote.toHtmlEscaped());
+
+        VMInstance vmCopy = vm;
+        auto *t = QThread::create([vmCopy]() {
+            RemoteShell::run(vmCopy,
+                RemoteShell::privileged(vmCopy, "usermod -aG docker " + vmCopy.sshUser),
+                30000);
+        });
+        t->start();
+        connect(t, &QThread::finished, t, &QThread::deleteLater);
+    }
 }
 
 void InfraPage::onCreateScalewayVM()

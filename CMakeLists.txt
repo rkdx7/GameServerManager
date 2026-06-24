@@ -44,6 +44,7 @@ add_executable(app-qt WIN32
 
     # Docker / remote execution
     src/docker/DockerManager.cpp    src/docker/DockerManager.h
+    src/docker/RemoteShell.cpp      src/docker/RemoteShell.h
     src/docker/SshTunnel.cpp        src/docker/SshTunnel.h
 
     # Cloud providers
