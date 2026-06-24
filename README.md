@@ -12,6 +12,10 @@ via Docker, en local ou sur une VM distante, depuis une interface moderne et uni
 [![Docker](https://img.shields.io/badge/Docker-required-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Platform](https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white)](#)
 
+<br>
+
+<img src="app.png" alt="Interface de GameServer Manager" width="800">
+
 </div>
 
 ---
