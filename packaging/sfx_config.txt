@@ -1,6 +1,0 @@
-;!@Install@!UTF-8!
-Title="GameServerManager"
-BeginPrompt=""
-Progress="yes"
-RunProgram="GameServerManager.exe"
-;!@InstallEnd@!

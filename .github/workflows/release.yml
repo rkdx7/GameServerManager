@@ -1,7 +1,11 @@
 name: Release
 
-# Builds a single self-contained Windows .exe (Qt DLLs + plugins embedded via a
-# 7-Zip self-extracting module) and attaches it to the GitHub Release.
+# Builds a genuinely portable, single-file Windows .exe by linking the app
+# against a STATICALLY built Qt. The result is one GameServerManager.exe that
+# launches instantly with no extraction and no accompanying DLLs.
+#
+# Building Qt statically from source is slow the first time (~20-40 min) but the
+# install prefix is cached, so later releases reuse it and just link the app.
 #
 # Trigger: push a version tag, e.g.  git tag v1.0.2 && git push origin v1.0.2
 # You can also run it manually from the Actions tab (workflow_dispatch).
@@ -15,6 +19,13 @@ on:
 permissions:
   contents: write
 
+env:
+  QT_VERSION: '6.7.3'
+  # Bump this to force a rebuild of the cached static Qt (e.g. after changing
+  # configure flags below).
+  QT_STATIC_CACHE_REV: '1'
+  QT_STATIC_PREFIX: 'C:\Qt-static'
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -23,64 +34,97 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt 6.7.3 (MinGW)
-        uses: jurplel/install-qt-action@v4
+      - name: Set up Python (for aqtinstall)
+        uses: actions/setup-python@v5
         with:
-          version: '6.7.3'
-          host: windows
-          target: desktop
-          arch: win64_mingw
-          tools: 'tools_mingw1310'
-          cache: true
+          python-version: '3.12'
 
-      - name: Add MinGW to PATH
+      - name: Install MinGW toolchain + Ninja (aqtinstall)
         shell: pwsh
-        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:IQTA_TOOLS\mingw1310_64\bin"
+        run: |
+          pip install aqtinstall
+          aqt install-tool windows desktop tools_mingw1310 -O C:\aqt
+          aqt install-tool windows desktop tools_ninja    -O C:\aqt
 
-      - name: Configure (CMake / MinGW Makefiles)
+      - name: Add toolchain to PATH
+        shell: pwsh
+        run: |
+          $mingw = (Get-ChildItem 'C:\aqt\Tools\mingw1310_64\bin' -Directory -ErrorAction SilentlyContinue)
+          Add-Content -Path $env:GITHUB_PATH -Value 'C:\aqt\Tools\mingw1310_64\bin'
+          $ninja = (Get-ChildItem 'C:\aqt\Tools\Ninja' -Filter ninja.exe -Recurse | Select-Object -First 1).DirectoryName
+          Add-Content -Path $env:GITHUB_PATH -Value $ninja
+
+      - name: Cache static Qt
+        id: cache-qt-static
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QT_STATIC_PREFIX }}
+          key: qt-static-${{ env.QT_VERSION }}-mingw1310-rev${{ env.QT_STATIC_CACHE_REV }}
+
+      - name: Download qtbase source
+        if: steps.cache-qt-static.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $v = '${{ env.QT_VERSION }}'
+          $minor = ($v -split '\.')[0..1] -join '.'
+          $url = "https://download.qt.io/official_releases/qt/$minor/$v/submodules/qtbase-everywhere-src-$v.zip"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile qtbase.zip
+          Expand-Archive qtbase.zip -DestinationPath C:\qtsrc
+          # Normalise the extracted folder name.
+          $dir = (Get-ChildItem C:\qtsrc -Directory | Select-Object -First 1).FullName
+          Add-Content -Path $env:GITHUB_ENV -Value "QTBASE_SRC=$dir"
+
+      - name: Configure & build static Qt
+        if: steps.cache-qt-static.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          mkdir qtbase-build
+          cd qtbase-build
+          call "%QTBASE_SRC%\configure.bat" ^
+            -static -static-runtime -release ^
+            -prefix "%QT_STATIC_PREFIX%" ^
+            -platform win32-g++ ^
+            -no-openssl ^
+            -nomake examples -nomake tests ^
+            -- -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+          if errorlevel 1 exit /b 1
+          cmake --build . --parallel
+          if errorlevel 1 exit /b 1
+          cmake --install .
+          if errorlevel 1 exit /b 1
+
+      - name: Configure app (static Qt)
         shell: cmd
         run: >
-          cmake -B build -G "MinGW Makefiles"
+          cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_MAKE_PROGRAM=mingw32-make.exe
           -DCMAKE_C_COMPILER=gcc.exe
           -DCMAKE_CXX_COMPILER=g++.exe
-          -DCMAKE_PREFIX_PATH="%QT_ROOT_DIR%"
+          -DCMAKE_PREFIX_PATH="%QT_STATIC_PREFIX%"
 
-      - name: Build
+      - name: Build app
         shell: cmd
-        run: cmake --build build -j 4
+        run: cmake --build build --parallel
 
-      - name: Deploy Qt dependencies (windeployqt)
-        shell: cmd
-        run: |
-          mkdir dist
-          copy build\app-qt.exe dist\GameServerManager.exe
-          windeployqt dist\GameServerManager.exe --release --no-translations --no-system-d3d-compiler --no-opengl-sw
-
-      - name: Pack into a single self-extracting .exe
+      - name: Stage single .exe
         shell: pwsh
         run: |
-          if (-not (Test-Path 'C:\Program Files\7-Zip\7z.sfx')) { throw "7z.sfx module not found on runner" }
-
-          # Archive everything windeployqt produced (exe + DLLs + plugins).
-          & 'C:\Program Files\7-Zip\7z.exe' a -t7z -mx=9 app.7z .\dist\*
-          if ($LASTEXITCODE -ne 0) { throw "7z archive failed" }
-
-          # Concatenate: SFX module + run config + archive  ->  one .exe.
-          # The SFX extracts to a temp dir at launch and starts app-qt.exe.
-          cmd /c 'copy /b "C:\Program Files\7-Zip\7z.sfx" + packaging\sfx_config.txt + app.7z GameServerManager.exe'
-          if (-not (Test-Path GameServerManager.exe)) { throw "SFX assembly failed" }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build\app-qt.exe dist\GameServerManager.exe
+          # Sanity check: a truly portable exe should not depend on Qt/MinGW DLLs.
+          $size = (Get-Item dist\GameServerManager.exe).Length / 1MB
+          Write-Host ("GameServerManager.exe = {0:N1} MB" -f $size)
 
       - name: Upload artifact (for manual runs)
         uses: actions/upload-artifact@v4
         with:
           name: GameServerManager-portable
-          path: GameServerManager.exe
+          path: dist/GameServerManager.exe
 
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: GameServerManager.exe
+          files: dist/GameServerManager.exe
           fail_on_unmatched_files: true

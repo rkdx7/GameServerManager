@@ -75,3 +75,18 @@ target_include_directories(app-qt PRIVATE
 )
 
 target_link_libraries(app-qt PRIVATE Qt6::Widgets Qt6::Network)
+
+# When linked against a statically-built Qt (the portable single-.exe release),
+# the platform/style/imageformat plugins are not separate DLLs: they must be
+# compiled into the executable and registered via Q_IMPORT_PLUGIN. CMake's
+# qt6_import_plugins() generates that glue automatically. We also force a fully
+# static link so the produced GameServerManager.exe needs no MinGW runtime DLLs
+# and launches with zero extraction.
+#
+# The normal local build (build.bat) uses a shared Qt, so this branch is skipped
+# and behaviour is unchanged there.
+get_target_property(_qt_core_type Qt6::Core TYPE)
+if(_qt_core_type STREQUAL "STATIC_LIBRARY")
+    qt6_import_plugins(app-qt)
+    target_link_options(app-qt PRIVATE -static -static-libgcc -static-libstdc++)
+endif()
