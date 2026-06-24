@@ -1,5 +1,6 @@
 #include "VMAdminPage.h"
 #include "DockerManager.h"
+#include "RemoteShell.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -16,6 +17,10 @@
 #include <QThread>
 #include <QProcess>
 #include <QScrollArea>
+#include <QCheckBox>
+#include <QMessageBox>
+#include <QApplication>
+#include <QClipboard>
 
 namespace {
 const char *CARD_STYLE = "QFrame { background: #ffffff; border-radius: 12px; }";
@@ -315,6 +320,33 @@ QWidget *VMAdminPage::buildConsoleTab()
     infoLbl->setStyleSheet("font-size: 12px; color: #64748b;");
     root->addWidget(infoLbl);
 
+    // ── Docker toolbar ────────────────────────────────────────────────────
+    if (m_vm.provider != VMProvider::Local) {
+        auto *toolRow = new QHBoxLayout;
+        toolRow->setSpacing(8);
+
+        m_installBtn = new QPushButton("🐳  Installer Docker", w);
+        m_installBtn->setFixedHeight(36);
+        m_installBtn->setCursor(Qt::PointingHandCursor);
+        m_installBtn->setStyleSheet(BTN_PRIMARY);
+        connect(m_installBtn, &QPushButton::clicked, this, &VMAdminPage::onInstallDocker);
+        toolRow->addWidget(m_installBtn);
+
+        m_sudoCheck = new QCheckBox("Exécuter avec sudo", w);
+        m_sudoCheck->setChecked(!m_vm.isRoot());
+        m_sudoCheck->setStyleSheet("font-size: 12px; color: #475569;");
+        toolRow->addWidget(m_sudoCheck);
+
+        if (!m_vm.isRoot() && m_vm.sudoPassword.isEmpty()) {
+            auto *warn = new QLabel("⚠ Aucun mot de passe sudo enregistré", w);
+            warn->setStyleSheet("font-size: 11px; color: #b45309;");
+            toolRow->addWidget(warn);
+        }
+
+        toolRow->addStretch();
+        root->addLayout(toolRow);
+    }
+
     m_consoleOutput = new QTextEdit(w);
     m_consoleOutput->setReadOnly(true);
     m_consoleOutput->setStyleSheet(R"(
@@ -495,6 +527,11 @@ void VMAdminPage::onRestart()
     connect(t, &QThread::finished, this, &VMAdminPage::refreshServers);
 }
 
+void VMAdminPage::appendConsole(const QString &html)
+{
+    if (m_consoleOutput) m_consoleOutput->append(html);
+}
+
 void VMAdminPage::onSendConsoleCmd()
 {
     if (!m_consoleInput || !m_consoleOutput) return;
@@ -502,32 +539,170 @@ void VMAdminPage::onSendConsoleCmd()
     if (cmd.isEmpty()) return;
     m_consoleInput->clear();
 
-    m_consoleOutput->append("<span style='color:#818cf8'>$ " + cmd + "</span>");
+    if (m_vm.provider == VMProvider::Local) {
+        appendConsole("<span style='color:#f87171'>La console SSH n'est disponible "
+                      "que pour les VMs distantes.</span>");
+        return;
+    }
 
-    DockerManager *d      = m_docker;
-    QTextEdit     *output = m_consoleOutput;
-    VMInstance     vm     = m_vm;
+    const bool useSudo = m_sudoCheck && m_sudoCheck->isChecked() && !m_vm.isRoot();
+    QString remoteCmd = useSudo ? RemoteShell::sudoPrefix(m_vm) + cmd : cmd;
 
-    auto *t = QThread::create([d, vm, cmd, output]() {
-        QProcess proc;
-        QStringList args = {
-            "-o", "StrictHostKeyChecking=no",
-            "-p", QString::number(vm.sshPort),
-        };
-        if (!vm.sshKeyPath.isEmpty())
-            args << "-i" << vm.sshKeyPath;
-        args << QString("%1@%2").arg(vm.sshUser, vm.host);
-        args << cmd;
+    appendConsole("<span style='color:#818cf8'>$ "
+                  + (useSudo ? QStringLiteral("sudo ") : QString())
+                  + cmd.toHtmlEscaped() + "</span>");
 
-        proc.start("ssh", args);
-        proc.waitForFinished(30000);
-        QString out = proc.readAllStandardOutput();
-        QString err = proc.readAllStandardError();
-        QString combined = out + err;
+    VMInstance vm        = m_vm;
+    QTextEdit *output    = m_consoleOutput;
 
+    auto *t = QThread::create([vm, remoteCmd, output]() {
+        QString combined = RemoteShell::run(vm, remoteCmd, 30000);
         QMetaObject::invokeMethod(output, [output, combined]() {
             output->append("<span style='color:#e2e8f0'>"
                            + combined.toHtmlEscaped() + "</span>");
+        }, Qt::QueuedConnection);
+    });
+    t->start();
+    connect(t, &QThread::finished, t, &QThread::deleteLater);
+}
+
+void VMAdminPage::runDockerInstall(const QString &script)
+{
+    appendConsole("<span style='color:#a5f3fc'>Installation en cours… "
+                  "(cela peut prendre une minute)</span>");
+    if (m_installBtn) {
+        m_installBtn->setEnabled(false);
+        m_installBtn->setText("⏳  Installation…");
+    }
+
+    VMInstance   vm   = m_vm;
+    QTextEdit   *out  = m_consoleOutput;
+    QPushButton *btn  = m_installBtn;
+    QString remoteCmd = RemoteShell::privileged(vm, script);
+
+    auto *t = QThread::create([vm, remoteCmd, out, btn]() {
+        QString result   = RemoteShell::run(vm, remoteCmd, 300000);
+        QString verify   = RemoteShell::run(vm, "docker --version", 15000);
+        bool ok          = verify.contains("Docker version", Qt::CaseInsensitive);
+
+        QMetaObject::invokeMethod(out, [out, btn, result, verify, ok]() {
+            out->append("<span style='color:#cbd5e1'>" + result.toHtmlEscaped() + "</span>");
+            if (ok) {
+                out->append("<span style='color:#22c55e'>✅ " + verify.trimmed().toHtmlEscaped()
+                            + "</span>");
+                out->append("<span style='color:#94a3b8'>Astuce : si l'utilisateur vient "
+                            "d'être ajouté au groupe docker, reconnectez-vous (ou redémarrez "
+                            "la VM) pour que la nouvelle appartenance prenne effet.</span>");
+            } else {
+                out->append("<span style='color:#f87171'>❌ Échec de l'installation de Docker. "
+                            "Vérifiez la sortie ci-dessus.</span>");
+            }
+            if (btn) { btn->setEnabled(true); btn->setText("🐳  Installer Docker"); }
+        }, Qt::QueuedConnection);
+    });
+    t->start();
+    connect(t, &QThread::finished, t, &QThread::deleteLater);
+}
+
+void VMAdminPage::promptManualDockerInstall(const QString &script)
+{
+    QString cmd = RemoteShell::interactiveSudoCommand(m_vm, script);
+
+    appendConsole("<span style='color:#fbbf24'>L'utilisateur n'est pas root et aucun mot de "
+                  "passe sudo n'est enregistré. Lancez la commande suivante dans un terminal — "
+                  "il vous suffira de saisir votre mot de passe :</span>");
+    appendConsole("<span style='color:#e2e8f0'>" + cmd.toHtmlEscaped() + "</span>");
+
+    QMessageBox box(this);
+    box.setWindowTitle("Installer Docker — mot de passe requis");
+    box.setTextFormat(Qt::RichText);
+    box.setText("<b>" + m_vm.sshUser + "</b> n'est pas root et aucun mot de passe sudo "
+                "n'est enregistré.<br><br>"
+                "Ouvrez un terminal exécutant la commande prête ci-dessous : vous n'aurez "
+                "qu'à taper votre mot de passe lorsque sudo le demandera.");
+    box.setInformativeText("<code style='font-size:11px'>" + cmd.toHtmlEscaped() + "</code>");
+    auto *openBtn = box.addButton("🖥  Ouvrir un terminal", QMessageBox::AcceptRole);
+    auto *copyBtn = box.addButton("📋  Copier la commande", QMessageBox::ActionRole);
+    box.addButton("Fermer", QMessageBox::RejectRole);
+    box.exec();
+
+    if (box.clickedButton() == copyBtn) {
+        QApplication::clipboard()->setText(cmd);
+        appendConsole("<span style='color:#94a3b8'>Commande copiée dans le presse-papiers.</span>");
+    } else if (box.clickedButton() == openBtn) {
+        if (!RemoteShell::launchInTerminal(cmd)) {
+            QApplication::clipboard()->setText(cmd);
+            appendConsole("<span style='color:#f87171'>Impossible d'ouvrir un terminal "
+                          "automatiquement — commande copiée dans le presse-papiers.</span>");
+        }
+    }
+}
+
+// Build a shell script (a single `&&` / `;` chain) that installs Docker for the
+// detected OS family, enables the service and — for a non-root user — adds them
+// to the `docker` group. `osId` is the lowercase "$ID $ID_LIKE" string.
+static QString dockerInstallScript(const QString &osId, const VMInstance &vm)
+{
+    auto has = [&](const char *needle) { return osId.contains(QLatin1String(needle)); };
+
+    QString install;
+    if (has("debian") || has("ubuntu") || has("raspbian") || has("mint") || has("pop"))
+        install = "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io";
+    else if (has("arch") || has("manjaro"))
+        install = "pacman -Sy --noconfirm docker";
+    else if (has("alpine"))
+        install = "apk add --no-cache docker";
+    else if (has("suse") || has("sles") || has("opensuse"))
+        install = "zypper --non-interactive install docker";
+    else
+        // Fedora / RHEL / CentOS / Rocky / Alma / Amazon Linux / unknown:
+        // the official convenience script auto-detects the distro.
+        install = "curl -fsSL https://get.docker.com | sh";
+
+    // Bring the daemon up across the various init systems, ignoring failures.
+    QString enable = "(systemctl enable --now docker 2>/dev/null "
+                     "|| rc-update add docker default 2>/dev/null && rc-service docker start "
+                     "|| service docker start 2>/dev/null || true)";
+
+    QString script = install + " && " + enable;
+    if (!vm.isRoot())
+        script += " ; usermod -aG docker " + vm.sshUser;
+    return script;
+}
+
+void VMAdminPage::onInstallDocker()
+{
+    if (m_vm.provider == VMProvider::Local) return;
+    if (m_installBtn) {
+        m_installBtn->setEnabled(false);
+        m_installBtn->setText("⏳  Détection de l'OS…");
+    }
+    appendConsole("<span style='color:#a5f3fc'>── Installation de Docker ──</span>");
+
+    VMInstance   vm   = m_vm;
+    QTextEdit   *out  = m_consoleOutput;
+    QPushButton *btn  = m_installBtn;
+    VMAdminPage *self = this;
+
+    auto *t = QThread::create([vm, out, btn, self]() {
+        QString osId  = RemoteShell::detectOsId(vm);
+        QString script = dockerInstallScript(osId, vm);
+
+        // Non-root without a stored sudo password: we cannot elevate
+        // non-interactively. Hand the ready-made command back to the user.
+        const bool needsManualSudo = !vm.isRoot() && vm.sudoPassword.isEmpty();
+
+        QMetaObject::invokeMethod(self, [self, out, btn, vm, osId, script, needsManualSudo]() {
+            out->append("<span style='color:#94a3b8'>OS détecté : "
+                        + (osId.isEmpty() ? QStringLiteral("inconnu") : osId.toHtmlEscaped())
+                        + "</span>");
+            if (btn) { btn->setEnabled(true); btn->setText("🐳  Installer Docker"); }
+
+            if (needsManualSudo) {
+                self->promptManualDockerInstall(script);
+                return;
+            }
+            self->runDockerInstall(script);
         }, Qt::QueuedConnection);
     });
     t->start();

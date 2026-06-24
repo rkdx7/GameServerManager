@@ -4,6 +4,7 @@
 #include "ImagePickerDialog.h"
 #include "DeploymentTargetSelector.h"
 #include "ServerPanelState.h"
+#include "GameBanner.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -23,6 +24,7 @@
 #include <QTextEdit>
 #include <QFile>
 #include <QDir>
+#include <QMessageBox>
 
 namespace {
 const char *INPUT_STYLE = R"(
@@ -444,14 +446,18 @@ QWidget *CS2Page::buildInstallForm() {
     auto *topRow = new QHBoxLayout;
     topRow->addStretch();
     topRow->addLayout(gearCol);
-    outer->addLayout(topRow);
-    outer->addSpacing(8);
 
     auto *gsltNote = new QLabel("ℹ Le token GSLT est requis pour les serveurs publics. Laissez vide pour LAN.", container);
     gsltNote->setStyleSheet("font-size: 12px; color: #94a3b8; background: transparent;");
     gsltNote->setWordWrap(true);
 
+    outer->addWidget(buildGameBanner(
+        "🔫", "CS2 / CS:GO Server",
+        "Déployez un serveur CS2 dédié via Docker (image joedwards32/cs2).",
+        "#ea580c", "#c2410c", ":/games/cs2.png", container));
     outer->addSpacing(12);
+    outer->addLayout(topRow);
+    outer->addSpacing(8);
     outer->addWidget(gsltNote);
     outer->addSpacing(24);
 
@@ -667,6 +673,8 @@ void CS2Page::checkStatus() {
                                              "/home/steam/cs2-dedicated/game/csgo/cfg/server.cfg", this);
             connect(dash, &ServerDashboard::uninstallRequested,
                     this, &CS2Page::onUninstall);
+            connect(dash, &ServerDashboard::upgradeRequested,
+                    this, &CS2Page::onUpgrade);
             m_stack->addWidget(dash);
             m_dashboards[inst.id] = dash;
         }
@@ -822,4 +830,53 @@ void CS2Page::onUninstall() {
         }
         m_stack->setCurrentIndex(0);
     });
+}
+
+// ── Upgrade (change version) ────────────────────────────────────────────────────
+
+void CS2Page::onUpgrade() {
+    if (m_currentInstanceIdx < 0 || m_currentInstanceIdx >= m_instances.size()) return;
+
+    // For CS2 the "version" is the Docker image/tag — pick a new one, then recreate.
+    const QString before = m_imageOverride;
+    openImagePicker();
+    if (m_imageOverride == before) return;   // cancelled or unchanged
+
+    const QString name  = m_instances[m_currentInstanceIdx].containerName;
+    const QString image = m_imageOverride.isEmpty() ? QString(DEFAULT_IMAGE) : m_imageOverride;
+
+    if (QMessageBox::question(this, "Changer de version",
+            QString("Le serveur « %1 » va être recréé avec l'image :\n%2\n\n"
+                    "Les données (volume Docker) sont conservées.\n\nContinuer ?")
+                .arg(name, image))
+        != QMessageBox::Yes)
+        return;
+
+    recreateContainer("⏳ Changement de version… recréation du conteneur");
+}
+
+// Tear down the running container (keeping its data volume) and reinstall with the
+// current instance config. Reuses onInstall() so all install logic stays in one place.
+void CS2Page::recreateContainer(const QString &statusMsg) {
+    if (m_currentInstanceIdx < 0 || m_currentInstanceIdx >= m_instances.size()) return;
+    const QString id   = m_instances[m_currentInstanceIdx].id;
+    const QString name = m_instances[m_currentInstanceIdx].containerName;
+
+    if (m_dashboards.contains(id)) {
+        m_dashboards[id]->stopPolling();
+        m_stack->removeWidget(m_dashboards[id]);
+        m_dashboards[id]->deleteLater();
+        m_dashboards.remove(id);
+    }
+    m_stack->setCurrentIndex(0);
+    m_installStatus->setStyleSheet("font-size: 13px; color: #6366f1; background: transparent;");
+    m_installStatus->setText(statusMsg);
+
+    DockerManager *docker = m_docker;
+    auto *thread = QThread::create([docker, name]() {
+        docker->removeContainer(name, false);   // keep the named _data volume
+    });
+    connect(thread, &QThread::finished, this, [this]() { onInstall(); });
+    connect(thread, &QThread::finished, thread, &QThread::deleteLater);
+    thread->start();
 }

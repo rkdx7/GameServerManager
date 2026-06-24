@@ -1,0 +1,3 @@
+// Windows resource script: sets the executable's icon.
+// The first icon in the .rc becomes the application/shell icon for the .exe.
+IDI_ICON1 ICON "app.ico"

@@ -1,25 +1,46 @@
-name: Build & Release
+name: Release
 
-# Se déclenche uniquement sur la branche main.
+# Builds the Windows (Qt 6 / MinGW) app, packages a versioned tarball and
+# publishes it as a GitHub Release.
+#
+# Triggered by pushing a semver tag (e.g. `v1.0.0`), or manually from the
+# Actions tab via the "Run workflow" button (workflow_dispatch).
+
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (without leading v, e.g. 1.0.0)'
+        required: true
 
-# Nécessaire pour créer des tags et publier des releases.
 permissions:
   contents: write
 
 jobs:
-  build:
+  build-release:
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Installe Qt 6.7.3 (MinGW 64-bit) + le compilateur MinGW,
-      # comme la toolchain locale décrite dans build.bat.
-      - name: Install Qt
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION"
+
+      - name: Install Qt 6.7.3 (MinGW)
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.7.3'
@@ -29,31 +50,45 @@ jobs:
           tools: 'tools_mingw1310'
           cache: true
 
-      - name: Install Ninja
-        run: choco install ninja -y
+      - name: Add MinGW to PATH
+        shell: bash
+        run: echo "$IQTA_TOOLS/mingw1310_64/bin" >> "$GITHUB_PATH"
 
-      - name: Configure
+      - name: Configure (CMake / MinGW Makefiles)
+        shell: cmd
         run: >
-          cmake -B build -G Ninja
+          cmake -B build -G "MinGW Makefiles"
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+          -DCMAKE_C_COMPILER=gcc
+          -DCMAKE_CXX_COMPILER=g++
 
       - name: Build
+        shell: cmd
         run: cmake --build build -j 4
 
-      # Copie l'exe dans un dossier propre puis déploie les DLLs Qt à côté.
-      - name: Package
+      - name: Stage and deploy Qt runtime
+        shell: cmd
+        env:
+          DIST: GameServerManager-${{ steps.version.outputs.version }}
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item build/app-qt.exe dist/
-          windeployqt dist/app-qt.exe --release --no-translations
-          Compress-Archive -Path dist/* -DestinationPath GameServerManager-windows.zip -Force
+          mkdir dist\%DIST%
+          copy build\app-qt.exe dist\%DIST%\
+          windeployqt dist\%DIST%\app-qt.exe --no-translations --release
 
-      - name: Publish release
+      - name: Package versioned tarball
+        id: package
+        shell: bash
+        run: |
+          DIST="GameServerManager-${{ steps.version.outputs.version }}"
+          ARCHIVE="$DIST.tar.gz"
+          tar -czf "$ARCHIVE" -C dist "$DIST"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          ls -lh "$ARCHIVE"
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: GameServerManager v1.0.${{ github.run_number }}
-          body: |
-            Build automatique depuis `main` (commit ${{ github.sha }}).
-          files: GameServerManager-windows.zip
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: ${{ steps.package.outputs.archive }}

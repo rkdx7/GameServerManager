@@ -29,6 +29,7 @@ void VMStorage::save(const QVector<VMInstance> &vms)
         s.setValue("sshPort",      vm.sshPort);
         s.setValue("sshUser",      vm.sshUser);
         s.setValue("sshKeyPath",   vm.sshKeyPath);
+        s.setValue("sudoPassword", vm.sudoPassword);
         s.setValue("provider",     providerStr(vm.provider));
         s.setValue("region",       vm.region);
         s.setValue("instanceType", vm.instanceType);
@@ -60,6 +61,7 @@ QVector<VMInstance> VMStorage::load()
         vm.sshPort      = s.value("sshPort", 22).toInt();
         vm.sshUser      = s.value("sshUser", "root").toString();
         vm.sshKeyPath   = s.value("sshKeyPath").toString();
+        vm.sudoPassword = s.value("sudoPassword").toString();
         vm.provider     = providerFrom(s.value("provider").toString());
         vm.region       = s.value("region").toString();
         vm.instanceType = s.value("instanceType").toString();

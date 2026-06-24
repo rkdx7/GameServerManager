@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(app-qt LANGUAGES CXX)
+project(app-qt VERSION 1.0.0 LANGUAGES CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,6 +13,9 @@ add_executable(app-qt WIN32
 
     # Bundled resources (game banner artwork)
     resources/games.qrc
+
+    # Windows executable icon (compiled by windres on MinGW)
+    resources/app.rc
 
     # Application shell
     src/app/MainWindow.cpp          src/app/MainWindow.h
@@ -44,6 +47,7 @@ add_executable(app-qt WIN32
 
     # Docker / remote execution
     src/docker/DockerManager.cpp    src/docker/DockerManager.h
+    src/docker/RemoteShell.cpp      src/docker/RemoteShell.h
     src/docker/SshTunnel.cpp        src/docker/SshTunnel.h
 
     # Cloud providers
