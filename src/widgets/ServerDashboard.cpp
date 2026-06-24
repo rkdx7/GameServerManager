@@ -85,8 +85,9 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
     , m_configFilePath(configFilePath)
 {
     // ── Status row ──────────────────────────────────────────────────────
-    m_statusDot  = new QLabel("●", this);
-    m_statusText = new QLabel("Vérification…", this);
+    m_statusDot   = new QLabel("●", this);
+    m_statusText  = new QLabel("Vérification…", this);
+    m_versionBadge = new QLabel("", this);
 
     auto statusLayout = [this]() {
         auto *w = new QWidget(this);
@@ -95,9 +96,14 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
         h->setSpacing(6);
         m_statusDot->setStyleSheet("font-size: 14px; color: #94a3b8; background: transparent;");
         m_statusText->setStyleSheet("font-size: 14px; font-weight: 600; color: #1e293b; background: transparent;");
+        m_versionBadge->setStyleSheet(
+            "font-size: 12px; font-weight: 600; color: #4f46e5; "
+            "background: #eef2ff; border-radius: 8px; padding: 3px 10px;");
+        m_versionBadge->setVisible(false);
         h->addWidget(m_statusDot);
         h->addWidget(m_statusText);
         h->addStretch();
+        h->addWidget(m_versionBadge);
         return w;
     }();
 
@@ -378,8 +384,14 @@ void ServerDashboard::refresh() {
             backups = docker->listBackups(name);
         }
 
-        QMetaObject::invokeMethod(this, [this, stats, players, backups]() {
-            updateDisplay(stats, players, backups);
+        // Installed version: the image the container runs from, plus the
+        // VERSION env for Minecraft (which carries the game version explicitly).
+        QString image   = docker->containerImage(name);
+        QString version = (type == GameType::Minecraft)
+                              ? docker->containerEnv(name, "VERSION") : QString();
+
+        QMetaObject::invokeMethod(this, [this, stats, players, backups, image, version]() {
+            updateDisplay(stats, players, backups, image, version);
             m_refreshing = false;
         }, Qt::QueuedConnection);
     });
@@ -388,7 +400,8 @@ void ServerDashboard::refresh() {
 }
 
 void ServerDashboard::updateDisplay(const ServerStats &s, int players,
-                                     const QStringList &backups) {
+                                     const QStringList &backups,
+                                     const QString &image, const QString &version) {
     // Status
     if (s.running) {
         m_statusDot->setStyleSheet("font-size: 14px; color: #22c55e; background: transparent;");
@@ -396,6 +409,22 @@ void ServerDashboard::updateDisplay(const ServerStats &s, int players,
     } else {
         m_statusDot->setStyleSheet("font-size: 14px; color: #ef4444; background: transparent;");
         m_statusText->setText("Hors ligne");
+    }
+
+    // Installed version badge (right side of status row). Prefer the explicit
+    // game version (Minecraft VERSION env); otherwise fall back to the image tag.
+    QString verText;
+    if (!version.isEmpty()) {
+        verText = version;
+    } else if (!image.isEmpty()) {
+        verText = image.contains(':') ? image.section(':', -1) : QStringLiteral("latest");
+    }
+    if (verText.isEmpty()) {
+        m_versionBadge->setVisible(false);
+    } else {
+        m_versionBadge->setText("🏷 Version : " + verText);
+        if (!image.isEmpty()) m_versionBadge->setToolTip("Image Docker : " + image);
+        m_versionBadge->setVisible(true);
     }
 
     // CPU

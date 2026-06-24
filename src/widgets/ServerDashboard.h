@@ -41,7 +41,8 @@ private slots:
 
 private:
     void updateDisplay(const ServerStats &stats, int players,
-                       const QStringList &backups);
+                       const QStringList &backups,
+                       const QString &image, const QString &version);
     QFrame *makeStatCard(const QString &title, QWidget *valueWidget,
                           QWidget *extra = nullptr);
 
@@ -56,6 +57,7 @@ private:
     // Status
     QLabel       *m_statusDot;
     QLabel       *m_statusText;
+    QLabel       *m_versionBadge;   // currently installed version / image
 
     // CPU
     QProgressBar *m_cpuBar;

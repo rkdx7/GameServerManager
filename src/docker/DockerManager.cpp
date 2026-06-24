@@ -210,6 +210,22 @@ QString DockerManager::execInContainer(const QString &container,
     return run(args, timeoutMs);
 }
 
+QString DockerManager::containerImage(const QString &name) {
+    return run({"inspect", "--format", "{{.Config.Image}}", name}, 8000).trimmed();
+}
+
+QString DockerManager::containerEnv(const QString &name, const QString &key) {
+    QString out = run({"inspect", "--format",
+                        "{{range .Config.Env}}{{println .}}{{end}}", name}, 8000);
+    const QString prefix = key + "=";
+    const auto lines = out.split('\n', Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        if (line.startsWith(prefix))
+            return line.mid(prefix.size()).trimmed();
+    }
+    return {};
+}
+
 QString DockerManager::dockerInfo() {
     return run({"info", "--format", "{{.ServerVersion}}"}, 10000);
 }
