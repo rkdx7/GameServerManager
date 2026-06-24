@@ -46,6 +46,11 @@ public:
     QString      containerImage(const QString &name);
     QString      containerEnv(const QString &name, const QString &key);
 
+    // Generic config-file read/write inside a container
+    QString      readContainerFile(const QString &name, const QString &filePath);
+    bool         writeContainerFile(const QString &name, const QString &filePath,
+                                    const QString &content);
+
     QString      dockerInfo();
     QStringList  listLocalImages();
     bool         loginRegistry(const QString &registry,

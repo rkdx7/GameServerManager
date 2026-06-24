@@ -24,6 +24,8 @@
 #include <QTextEdit>
 #include <QFile>
 #include <QDir>
+#include <QInputDialog>
+#include <QMessageBox>
 
 namespace {
 const char *INPUT_STYLE = R"(
@@ -445,10 +447,15 @@ QWidget *MinecraftPage::buildInstallForm() {
     auto *topRow = new QHBoxLayout;
     topRow->addStretch();
     topRow->addLayout(gearCol);
-    outer->addLayout(topRow);
-    outer->addSpacing(8);
 
-    outer->addSpacing(20);
+    outer->addWidget(buildGameBanner(
+        "🎮", "Minecraft Server",
+        "Configurez et déployez votre serveur Minecraft via Docker.",
+        "#16a34a", "#15803d", container));
+    outer->addSpacing(12);
+
+    outer->addLayout(topRow);
+    outer->addSpacing(28);
 
     auto *card = new QFrame(container);
     card->setAttribute(Qt::WA_StyledBackground, true);
@@ -660,6 +667,8 @@ void MinecraftPage::checkStatus() {
                                              {}, "/data/server.properties", this);
             connect(dash, &ServerDashboard::uninstallRequested,
                     this, &MinecraftPage::onUninstall);
+            connect(dash, &ServerDashboard::upgradeRequested,
+                    this, &MinecraftPage::onUpgrade);
             m_stack->addWidget(dash);
             m_dashboards[inst.id] = dash;
         }
@@ -811,4 +820,66 @@ void MinecraftPage::onUninstall() {
         }
         m_stack->setCurrentIndex(0);
     });
+}
+
+// ── Upgrade (change version) ────────────────────────────────────────────────────
+
+void MinecraftPage::onUpgrade() {
+    if (m_currentInstanceIdx < 0 || m_currentInstanceIdx >= m_instances.size()) return;
+    auto &inst = m_instances[m_currentInstanceIdx];
+
+    QStringList versions;
+    for (int i = 0; i < m_version->count(); ++i)
+        versions << m_version->itemText(i);
+    const QString currentVer = inst.fieldValues.value("version", "LATEST");
+    int curIdx = versions.indexOf(currentVer);
+
+    bool ok = false;
+    const QString newVer = QInputDialog::getItem(
+        this, "Changer de version",
+        QString("Version actuelle : %1\n\nNouvelle version :").arg(currentVer),
+        versions, curIdx < 0 ? 0 : curIdx, false, &ok);
+    if (!ok || newVer.isEmpty() || newVer == currentVer) return;
+
+    if (QMessageBox::question(this, "Changer de version",
+            QString("Le serveur « %1 » va être recréé en version %2.\n"
+                    "Les données du monde (volume Docker) sont conservées.\n\nContinuer ?")
+                .arg(inst.containerName, newVer))
+        != QMessageBox::Yes)
+        return;
+
+    inst.fieldValues["version"] = newVer;
+    if (m_version) {
+        int i = m_version->findText(newVer);
+        if (i >= 0) m_version->setCurrentIndex(i);
+    }
+    saveInstances();
+
+    recreateContainer(QString("⏳ Passage en version %1… recréation du conteneur").arg(newVer));
+}
+
+// Tear down the running container (keeping its data volume) and reinstall with the
+// current instance config. Reuses onInstall() so all install logic stays in one place.
+void MinecraftPage::recreateContainer(const QString &statusMsg) {
+    if (m_currentInstanceIdx < 0 || m_currentInstanceIdx >= m_instances.size()) return;
+    const QString id   = m_instances[m_currentInstanceIdx].id;
+    const QString name = m_instances[m_currentInstanceIdx].containerName;
+
+    if (m_dashboards.contains(id)) {
+        m_dashboards[id]->stopPolling();
+        m_stack->removeWidget(m_dashboards[id]);
+        m_dashboards[id]->deleteLater();
+        m_dashboards.remove(id);
+    }
+    m_stack->setCurrentIndex(0);
+    m_installStatus->setStyleSheet("font-size: 13px; color: #6366f1; background: transparent;");
+    m_installStatus->setText(statusMsg);
+
+    DockerManager *docker = m_docker;
+    auto *thread = QThread::create([docker, name]() {
+        docker->removeContainer(name, false);   // keep the named _data volume
+    });
+    connect(thread, &QThread::finished, this, [this]() { onInstall(); });
+    connect(thread, &QThread::finished, thread, &QThread::deleteLater);
+    thread->start();
 }

@@ -226,6 +226,17 @@ QString DockerManager::containerEnv(const QString &name, const QString &key) {
     return {};
 }
 
+QString DockerManager::readContainerFile(const QString &name, const QString &filePath) {
+    return run({"exec", name, "cat", filePath}, 8000);
+}
+
+bool DockerManager::writeContainerFile(const QString &name, const QString &filePath,
+                                        const QString &content) {
+    QString cmd = QString("cat > '%1'").arg(filePath);
+    run({"exec", "-i", name, "sh", "-c", cmd}, 15000, content.toUtf8());
+    return true;
+}
+
 QString DockerManager::dockerInfo() {
     return run({"info", "--format", "{{.ServerVersion}}"}, 10000);
 }

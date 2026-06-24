@@ -244,6 +244,21 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
     m_stopBtn    = makeActionBtn("■  Arrêter",  "#ef4444", "#dc2626");
     m_restartBtn = makeActionBtn("↺  Redémarrer","#f59e0b","#d97706");
 
+    auto *btnUpgrade = new QPushButton("⬆  Changer de version", this);
+    btnUpgrade->setCursor(Qt::PointingHandCursor);
+    btnUpgrade->setStyleSheet(R"(
+        QPushButton {
+            background: transparent;
+            color: #6366f1;
+            border: 2px solid #6366f1;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+        }
+        QPushButton:hover { background: #eef2ff; }
+    )");
+
     auto *btnUninstall = new QPushButton("🗑  Désinstaller le serveur", this);
     btnUninstall->setCursor(Qt::PointingHandCursor);
     btnUninstall->setStyleSheet(R"(
@@ -262,6 +277,7 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
     connect(m_startBtn,   &QPushButton::clicked, this, [this]{ m_docker->startContainer(m_containerName); refresh(); });
     connect(m_stopBtn,    &QPushButton::clicked, this, [this]{ m_docker->stopContainer(m_containerName); refresh(); });
     connect(m_restartBtn, &QPushButton::clicked, this, [this]{ m_docker->restartContainer(m_containerName); refresh(); });
+    connect(btnUpgrade,   &QPushButton::clicked, this, &ServerDashboard::upgradeRequested);
     connect(btnUninstall, &QPushButton::clicked, this, &ServerDashboard::uninstallRequested);
 
     auto *actionRow = new QHBoxLayout;
@@ -270,6 +286,7 @@ ServerDashboard::ServerDashboard(DockerManager *docker,
     actionRow->addWidget(m_stopBtn);
     actionRow->addWidget(m_restartBtn);
     actionRow->addStretch();
+    actionRow->addWidget(btnUpgrade);
     actionRow->addWidget(btnUninstall);
 
     // ── Dashboard tab content ────────────────────────────────────────────
