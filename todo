@@ -1,38 +1,56 @@
-- faire fonctionné les backups
-- pouvoir pouvoir switcher entre les backups comme si cetait des snapshot
-- pouvoir scheduler des backups et si c est un serveur distance install une crons sur le serveurs distant
-- choisir la localisation de backup local, sur un serveur 
-- pouvoir rename le serveurs et prompte pour creer le serveurs pour choisir le nom
-- nom du serveur affichier au niveau des joueurs
-- pouvoir editer le fichier de conf meme apres l installation du serveur et ajoute une option pour choisir quand on veux la customiser
-- advenced dit moi a quoi ça fait reference quand le nom du fichier par exemple pour chaque jeux
-- montre un exemple de configuration
-- relire tout le code et optimisé  et trié les fichiers par dossiers
-- je veux que les version proposé soit reload automatiquement depuis les tags de l image ciblé sur le registry
-- ajouter csgo 1.6
-- ajoute cube2 sauerbraten
-- ajoute un banier jolie de chaque jeux en haut de chaque page
-- voir les logs du  container directement depuis chaque page de chaque serveur de jeux\
-- voir les event du container pour voir si il y a un probleme
+# TODO — GameServerManager
 
-- ajoute une partie section chat vocal, install serveur ts3 mumble 
-- ajoute une section prometheus grafana alermanager preconfigure ensemble (on peut le deployer en local ou a distance  comme les serveurs de jeux)
-  une fois installer donne les liens pour y accedé 
+## ✅ Déjà implémenté (retiré de la liste)
+- Backups : création + restauration/switch entre sauvegardes via la combo du dashboard.
+- Édition du fichier de configuration après installation, avec choix du moment
+  (« À l'installation » / « Plus tard, onglet Configuration »).
+- Renommage d'un serveur (double-clic) + nom demandé à la création.
+- CS:GO 1.6 et Sauerbraten (Cube 2) ajoutés au menu.
+- Bannière de jeu en haut de chaque page.
+- Onglet « Logs » du container dans le dashboard de chaque serveur.
+- Jeux regroupés en sous-catégories dans le menu de gauche.
+- Code trié par dossiers (app / cloud / dialogs / docker / models / pages / widgets).
+- Pas de page de login (aucune n'existe dans l'appli).
+- Icône de l'exécutable Windows (.exe) + documentation de base (docs/).
 
+---
 
-- ajoute une partie site web avec site worldpress et un form phpbb ou plus recent 
+## 🗄️ Backups
+- [ ] Planifier des backups automatiques (intervalle / horaire). Pour un serveur
+      distant, installer une tâche cron sur la VM distante plutôt qu'en local.
+- [ ] Choisir l'emplacement des backups : disque local ou sur un serveur distant.
 
-- dans le menu de gauche regroupe tout les jeux enssemble dans sous menu 
-- dans un autre sous menu les chat vocal
-- dans un autre sous menu le siteweb et le forum 
-- dans un autre sous menu le monitoring
-- dans un autre sous menu un securité (wireguard) uniquement dispo pour un serveur distant et il doit etre installer sur la vm et pas dans docker
- ajoute un section firewall pour ouvrir fermer des ports de la machine distante 
- ajoute fail2ban 
+## ⚙️ Configuration des serveurs
+- [ ] Faire en sorte que le nom du serveur soit visible côté joueurs
+      (hostname / MOTD / sv_hostname selon le jeu), pas seulement comme nom de container.
+- [ ] Mode avancé : pour chaque jeu, expliquer à quoi correspond le fichier de
+      configuration édité (nom du fichier + son rôle).
+- [ ] Afficher un exemple de configuration commenté pour chaque jeu.
+- [ ] Recharger automatiquement les versions proposées depuis les tags de l'image
+      sur le registry (aujourd'hui codées en dur dans les pages ; réutiliser la
+      logique `reloadHubTags` de `ImagePickerDialog`).
+- [ ] Afficher la version actuellement installée du serveur.
+- [ ] Bouton « Upgrade » pour changer la version du serveur de jeu après installation.
+- [ ] Menu « Settings » pour configurer le serveur après le premier démarrage.
 
+## 🩺 Diagnostic
+- [ ] Afficher les events du container (`docker events`) pour repérer les problèmes.
 
+## 🆕 Nouvelles sections (avec leur sous-menu dédié à gauche)
+- [ ] **Chat vocal** : installer un serveur TeamSpeak 3 et/ou Mumble.
+- [ ] **Monitoring** : Prometheus + Grafana + Alertmanager préconfigurés ensemble,
+      déployables en local ou à distance (comme les serveurs de jeux). Une fois
+      installés, afficher les liens d'accès.
+- [ ] **Web** : site WordPress + forum phpBB (ou plus récent).
+- [ ] **Sécurité** (serveur distant uniquement) :
+      - [ ] WireGuard installé directement sur la VM (pas dans Docker).
+      - [ ] Firewall : ouvrir / fermer les ports de la machine distante.
+      - [ ] fail2ban.
+- [ ] Réorganiser le menu de gauche en sous-menus : Jeux (fait), Chat vocal,
+      Web & Forum, Monitoring, Sécurité.
 
-- docs a rediger 
-- retirer la page de login
-- ajoute une icon a l applit
-- ecrit des cgu et recommande moi sous quelle licence je peux le diffuser
+## 🧹 Qualité / divers
+- [ ] Relire et optimiser l'ensemble du code (le tri par dossiers est fait).
+- [ ] Définir l'icône de la fenêtre / barre des tâches dans l'appli
+      (`setWindowIcon`) — l'icône de l'.exe est déjà en place.
+- [ ] Rédiger des CGU et recommander une licence de diffusion.
