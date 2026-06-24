@@ -7,10 +7,15 @@
 Une application de bureau Windows qui déploie, surveille et administre vos serveurs de jeux
 via Docker, en local ou sur une VM distante, depuis une interface moderne et unifiée.
 
+[![Status](https://img.shields.io/badge/version-alpha-orange)](#)
 [![Qt](https://img.shields.io/badge/Qt-6.7-41CD52?logo=qt&logoColor=white)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 [![Docker](https://img.shields.io/badge/Docker-required-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Platform](https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white)](#)
+
+> ⚠️ **Version alpha** — GameServer Manager est en cours de développement actif.
+> Des bugs, des changements cassants et des fonctionnalités incomplètes sont à prévoir.
+> À utiliser à vos propres risques et évitez les environnements de production.
 
 <br>
 
@@ -77,6 +82,14 @@ Tous les autres jeux sont gérés par un moteur de configuration générique uni
 ---
 
 ## ⚡ Démarrage rapide
+
+### Téléchargement
+
+La dernière version **déjà compilée** est disponible dans les
+**[Releases GitHub du projet](../../releases/latest)** — pas besoin de compiler
+quoi que ce soit. Téléchargez l'exécutable de la dernière release et lancez-le directement.
+
+> Vous préférez compiler depuis les sources ? Suivez les étapes ci-dessous.
 
 ### Prérequis
 
