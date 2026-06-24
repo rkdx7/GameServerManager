@@ -1,44 +1,27 @@
 name: Release
 
-# Builds the Windows (Qt 6 / MinGW) app, packages a versioned tarball and
-# publishes it as a GitHub Release.
+# Builds a single self-contained Windows .exe (Qt DLLs + plugins embedded via a
+# 7-Zip self-extracting module) and attaches it to the GitHub Release.
 #
-# Triggered by pushing a semver tag (e.g. `v1.0.0`), or manually from the
-# Actions tab via the "Run workflow" button (workflow_dispatch).
+# Trigger: push a version tag, e.g.  git tag v1.0.2 && git push origin v1.0.2
+# You can also run it manually from the Actions tab (workflow_dispatch).
 
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to build (without leading v, e.g. 1.0.0)'
-        required: true
 
 permissions:
   contents: write
 
 jobs:
-  build-release:
+  build-windows:
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Determine version
-        id: version
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building version $VERSION"
 
       - name: Install Qt 6.7.3 (MinGW)
         uses: jurplel/install-qt-action@v4
@@ -51,44 +34,53 @@ jobs:
           cache: true
 
       - name: Add MinGW to PATH
-        shell: bash
-        run: echo "$IQTA_TOOLS/mingw1310_64/bin" >> "$GITHUB_PATH"
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:IQTA_TOOLS\mingw1310_64\bin"
 
       - name: Configure (CMake / MinGW Makefiles)
         shell: cmd
         run: >
           cmake -B build -G "MinGW Makefiles"
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER=gcc
-          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_MAKE_PROGRAM=mingw32-make.exe
+          -DCMAKE_C_COMPILER=gcc.exe
+          -DCMAKE_CXX_COMPILER=g++.exe
+          -DCMAKE_PREFIX_PATH="%QT_ROOT_DIR%"
 
       - name: Build
         shell: cmd
         run: cmake --build build -j 4
 
-      - name: Stage and deploy Qt runtime
+      - name: Deploy Qt dependencies (windeployqt)
         shell: cmd
-        env:
-          DIST: GameServerManager-${{ steps.version.outputs.version }}
         run: |
-          mkdir dist\%DIST%
-          copy build\app-qt.exe dist\%DIST%\
-          windeployqt dist\%DIST%\app-qt.exe --no-translations --release
+          mkdir dist
+          copy build\app-qt.exe dist\GameServerManager.exe
+          windeployqt dist\GameServerManager.exe --release --no-translations --no-system-d3d-compiler --no-opengl-sw
 
-      - name: Package versioned tarball
-        id: package
-        shell: bash
+      - name: Pack into a single self-extracting .exe
+        shell: pwsh
         run: |
-          DIST="GameServerManager-${{ steps.version.outputs.version }}"
-          ARCHIVE="$DIST.tar.gz"
-          tar -czf "$ARCHIVE" -C dist "$DIST"
-          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
-          ls -lh "$ARCHIVE"
+          if (-not (Test-Path 'C:\Program Files\7-Zip\7z.sfx')) { throw "7z.sfx module not found on runner" }
 
-      - name: Publish GitHub Release
+          # Archive everything windeployqt produced (exe + DLLs + plugins).
+          & 'C:\Program Files\7-Zip\7z.exe' a -t7z -mx=9 app.7z .\dist\*
+          if ($LASTEXITCODE -ne 0) { throw "7z archive failed" }
+
+          # Concatenate: SFX module + run config + archive  ->  one .exe.
+          # The SFX extracts to a temp dir at launch and starts app-qt.exe.
+          cmd /c 'copy /b "C:\Program Files\7-Zip\7z.sfx" + packaging\sfx_config.txt + app.7z GameServerManager.exe'
+          if (-not (Test-Path GameServerManager.exe)) { throw "SFX assembly failed" }
+
+      - name: Upload artifact (for manual runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameServerManager-portable
+          path: GameServerManager.exe
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
-          generate_release_notes: true
-          files: ${{ steps.package.outputs.archive }}
+          files: GameServerManager.exe
+          fail_on_unmatched_files: true
